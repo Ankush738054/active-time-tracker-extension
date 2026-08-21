@@ -4,8 +4,12 @@
   "version": "0.1.0",
   "description": "Tracks active website time across Chrome and Brave, synced under a single user account.",
   "permissions": [
-    "storage"
+    "storage",
+    "tabs"
   ],
+  "background": {
+    "service_worker": "background.js"
+  },
   "action": {
     "default_popup": "popup.html"
   }
