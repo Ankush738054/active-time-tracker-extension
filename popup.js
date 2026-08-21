@@ -30,8 +30,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const logoutBtn = document.getElementById('logout-btn');
   const dashboardLink = document.getElementById('dashboard-link');
 
-  const API_URL = 'http://localhost:5000/api/auth';
-  const STATS_URL = 'http://localhost:5000/api/activity/stats?range=today';
+  const API_URL = 'https://active-time-tracker-backend.onrender.com/api/auth';
+  const STATS_URL = 'https://active-time-tracker-backend.onrender.com/api/activity/stats?range=today';
   let authMode = 'login';
 
   // Toggle Auth Modes (Login / Register)

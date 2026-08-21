@@ -324,7 +324,7 @@ async function syncLogsWithCloud() {
     isSyncing = true;
     console.log(`[SYNC] Attempting to sync ${logs.length} cached logs with the cloud database...`);
 
-    fetch('http://localhost:5000/api/activity/ingest', {
+    fetch('https://active-time-tracker-backend.onrender.com/api/activity/ingest', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
