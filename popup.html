@@ -13,7 +13,21 @@
   <div class="container">
     <div class="card">
       <header>
-        <h1>Active Tracker</h1>
+        <div class="header-title">
+          <!-- Logo SVG -->
+          <svg class="logo-svg" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="10" stroke="url(#header-logo-grad)" stroke-width="2.5" fill="none"/>
+            <path d="M12 6v6l4 2" stroke="url(#header-logo-grad)" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+            <defs>
+              <linearGradient id="header-logo-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#06b6d4" />
+                <stop offset="100%" stop-color="#a855f7" />
+              </linearGradient>
+            </defs>
+          </svg>
+          <h1>ActiveTime</h1>
+          <a href="#" id="dashboard-link" class="dashboard-link" title="Open Web Dashboard">📊</a>
+        </div>
         <div class="status-badge" id="status-container">
           <span class="status-dot"></span>
           <span id="status-text">Idle</span>
@@ -27,14 +41,73 @@
       
       <div class="divider"></div>
       
-      <div class="stats-grid">
-        <div class="stat-box">
-          <div class="stat-label">Today's Total</div>
+      <div class="stats-container">
+        <div class="stat-box total-box">
+          <div class="stat-label">Today's Total Time</div>
           <div class="stat-value" id="today-total">0m</div>
         </div>
-        <div class="stat-box">
-          <div class="stat-label">Top Website</div>
-          <div class="stat-value" id="top-site">None</div>
+        
+        <div class="stat-box leaderboard-box">
+          <div class="stat-label">Top Websites Today</div>
+          <div class="leaderboard-list" id="leaderboard-list">
+            <div class="leaderboard-item empty">No sites tracked today</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sync / Account Controls -->
+    <button class="btn btn-cloud" id="cloud-toggle-btn">Sync to Cloud</button>
+
+    <div class="profile-container" id="profile-container" style="display: none;">
+      <div class="profile-info">
+        <span class="cloud-icon">☁</span>
+        <span id="profile-username">Logged in</span>
+      </div>
+      <button class="btn btn-logout" id="logout-btn">Log Out</button>
+    </div>
+
+    <!-- Auth Panel Overlay -->
+    <div class="auth-panel" id="auth-panel">
+      <div class="auth-card">
+        <div class="auth-header">
+          <div class="auth-logo-group">
+            <svg class="logo-svg auth-logo" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="10" stroke="url(#auth-logo-grad)" stroke-width="2.5" fill="none"/>
+              <path d="M12 6v6l4 2" stroke="url(#auth-logo-grad)" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+              <defs>
+                <linearGradient id="auth-logo-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="#06b6d4" />
+                  <stop offset="100%" stop-color="#a855f7" />
+                </linearGradient>
+              </defs>
+            </svg>
+            <h2 id="auth-title">Log In</h2>
+          </div>
+          <button class="btn-close" id="auth-close-btn">&times;</button>
+        </div>
+        <form id="auth-form">
+          <div class="form-group" id="username-group" style="display: none;">
+            <label for="reg-username">Username</label>
+            <input type="text" id="reg-username" placeholder="Enter username">
+          </div>
+          <div class="form-group">
+            <label for="auth-email">Email</label>
+            <input type="email" id="auth-email" required placeholder="Enter email">
+          </div>
+          <div class="form-group">
+            <label for="auth-password">Password</label>
+            <div class="password-wrapper">
+              <input type="password" id="auth-password" required placeholder="Enter password">
+              <button type="button" class="btn-toggle-password" id="toggle-password-btn" title="Toggle password visibility">👁️</button>
+            </div>
+          </div>
+          <div class="error-msg" id="auth-error-msg" style="display: none;"></div>
+          <button type="submit" class="btn btn-submit" id="auth-submit-btn">Log In</button>
+        </form>
+        <div class="auth-footer">
+          <span id="auth-toggle-msg">Don't have an account?</span>
+          <a href="#" id="auth-toggle-link">Register</a>
         </div>
       </div>
     </div>

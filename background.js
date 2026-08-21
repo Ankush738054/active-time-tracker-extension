@@ -3,6 +3,7 @@
 let isBrowserFocused = false;
 let currentActiveTabId = null;
 let isAudiblePlayback = false;
+let isSystemIdle = false;
 let isPopupOpen = false;
 
 // Tracking Engine state
@@ -12,6 +13,8 @@ let currentReason = "";
 
 // Heartbeat tracking
 let heartbeatIntervalId = null;
+
+const IDLE_DETECTION_INTERVAL = 60; // 60 seconds (1 minute) for production balance
 
 function normalizeDomain(url) {
   if (!url) return null;
@@ -94,7 +97,15 @@ function commitActivitySegment(transitionReason) {
   if (!currentTrackingDomain || !trackingStartTime) return;
 
   const now = Date.now();
-  const durationMs = now - trackingStartTime;
+  let durationMs = now - trackingStartTime;
+
+  // Retroactive idle time adjustment:
+  // We subtract the 60 seconds check delay to keep logs precise.
+  if (transitionReason === 'System Idle') {
+    const idleThresholdMs = IDLE_DETECTION_INTERVAL * 1000;
+    durationMs = Math.max(0, durationMs - idleThresholdMs);
+  }
+
   const durationSeconds = Math.round(durationMs / 1000);
 
   if (durationSeconds > 0) {
@@ -116,6 +127,7 @@ function commitActivitySegment(transitionReason) {
       logs.push(segment);
       chrome.storage.local.set({ activityLogs: logs }, () => {
         console.log(`[STORAGE] Segment saved. Total local records: ${logs.length}`);
+        syncLogsWithCloud(); // Sync immediately upon committing
       });
     });
   } else {
@@ -140,12 +152,24 @@ async function updateTrackingState() {
     const audibleTabs = await chrome.tabs.query({ audible: true });
     const hasAudible = audibleTabs && audibleTabs.length > 0;
 
+    // 1. Check if user is idle (but allow active audio playback to bypass idle pause)
+    if (isSystemIdle) {
+      if (hasAudible) {
+        const audibleTab = audibleTabs[0];
+        const domain = normalizeDomain(audibleTab.url);
+        setTrackingTarget(audibleTab.id, domain, true, `Audible playback during system idle`);
+        return;
+      }
+      setTrackingTarget(null, null, false, `System Idle`);
+      return;
+    }
+
     // If the popup is open, we bypass the focus check and keep tracking the last active domain
     if (isPopupOpen && currentTrackingDomain) {
       return;
     }
 
-    // 1. Get the last focused window and check if it is active and not minimized
+    // 2. If the browser window has OS focus, track the active tab
     const lastFocusedWin = await chrome.windows.getLastFocused({ populate: false });
     if (lastFocusedWin && lastFocusedWin.state !== 'minimized' && lastFocusedWin.type === 'normal') {
       isBrowserFocused = lastFocusedWin.focused;
@@ -162,7 +186,7 @@ async function updateTrackingState() {
       }
     }
 
-    // 2. If browser is not focused, scan for any tab currently playing audio/video
+    // 3. If browser is not focused, scan for any tab currently playing audio/video
     if (hasAudible) {
       const audibleTab = audibleTabs[0];
       const domain = normalizeDomain(audibleTab.url);
@@ -170,7 +194,7 @@ async function updateTrackingState() {
       return;
     }
 
-    // 3. No focused window and no background audio playing -> pause tracking
+    // 4. No focused window and no background audio playing -> pause tracking
     setTrackingTarget(null, null, false, `No active/audible context`);
   } catch (error) {
     console.error(`Error updating tracking state:`, error);
@@ -244,6 +268,15 @@ chrome.windows.onFocusChanged.addListener((windowId) => {
   }
 });
 
+// Idle API Configuration & Event Listeners
+chrome.idle.setDetectionInterval(IDLE_DETECTION_INTERVAL);
+
+chrome.idle.onStateChanged.addListener((state) => {
+  console.log(`Idle state changed to: ${state}`);
+  isSystemIdle = (state === 'idle' || state === 'locked');
+  updateTrackingState();
+});
+
 // Initialize on service worker startup
 chrome.windows.getLastFocused({ populate: false }, (win) => {
   if (win && win.focused && win.state !== 'minimized' && win.type === 'normal') {
@@ -253,7 +286,11 @@ chrome.windows.getLastFocused({ populate: false }, (win) => {
   }
 
   recoverPreviousSession(() => {
-    updateTrackingState();
+    chrome.idle.queryState(IDLE_DETECTION_INTERVAL, (state) => {
+      isSystemIdle = (state === 'idle' || state === 'locked');
+      updateTrackingState();
+      syncLogsWithCloud(); // Try syncing cached logs on extension load
+    });
   });
 });
 
@@ -267,6 +304,71 @@ chrome.runtime.onConnect.addListener((port) => {
       isPopupOpen = false;
       updateTrackingState();
     });
+  }
+});
+
+// Background Cloud Synchronization Queue
+let isSyncing = false;
+
+async function syncLogsWithCloud() {
+  if (isSyncing) return;
+
+  chrome.storage.local.get(['activityLogs', 'token'], (result) => {
+    const logs = result.activityLogs || [];
+    const token = result.token;
+
+    if (!token || logs.length === 0) {
+      return;
+    }
+
+    isSyncing = true;
+    console.log(`[SYNC] Attempting to sync ${logs.length} cached logs with the cloud database...`);
+
+    fetch('http://localhost:5000/api/activity/ingest', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ logs })
+    })
+    .then(res => res.json())
+    .then(data => {
+      isSyncing = false;
+      if (data.success) {
+        console.log(`[SYNC] Ingested ${data.count} logs successfully in the cloud.`);
+        
+        // Safely filter and clean up successfully uploaded logs from local queue
+        chrome.storage.local.get(['activityLogs'], (latestResult) => {
+          const latestLogs = latestResult.activityLogs || [];
+          const remainingLogs = latestLogs.filter(latestLog => {
+            return !logs.some(syncedLog => 
+              syncedLog.domain === latestLog.domain && 
+              syncedLog.startTime === latestLog.startTime
+            );
+          });
+
+          chrome.storage.local.set({ activityLogs: remainingLogs }, () => {
+            console.log(`[SYNC] Offline sync queue cleaned up. Remaining items in queue: ${remainingLogs.length}`);
+          });
+        });
+      } else {
+        console.warn(`[SYNC] Cloud server rejected ingestion:`, data.message);
+      }
+    })
+    .catch(err => {
+      isSyncing = false;
+      console.warn(`[SYNC] Cloud server unreachable. Logs safely cached locally:`, err.message);
+    });
+  });
+}
+
+// Set up periodic cloud synchronization alarms
+chrome.alarms.create('cloud-sync', { periodInMinutes: 1 });
+
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === 'cloud-sync') {
+    syncLogsWithCloud();
   }
 });
 
