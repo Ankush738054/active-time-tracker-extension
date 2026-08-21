@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Time Tracker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <header>
+        <h1>Active Tracker</h1>
+        <div class="status-badge" id="status-container">
+          <span class="status-dot"></span>
+          <span id="status-text">Tracking</span>
+        </div>
+      </header>
+      
+      <div class="tracking-info">
+        <div class="label">Current Website</div>
+        <div class="value" id="current-domain">youtube.com</div>
+        <div class="timer" id="current-timer">00:14:32</div>
+      </div>
+      
+      <div class="divider"></div>
+      
+      <div class="stats-grid">
+        <div class="stat-box">
+          <div class="stat-label">Today's Total</div>
+          <div class="stat-value" id="today-total">3h 42m</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">Top Website</div>
+          <div class="stat-value" id="top-site">youtube.com</div>
+        </div>
+      </div>
+      
+      <button class="btn" id="mock-btn">Simulate State Transition</button>
+    </div>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "Active Time Tracker",
+  "version": "0.1.0",
+  "description": "Tracks active website time across Chrome and Brave, synced under a single user account.",
+  "permissions": [
+    "storage"
+  ],
+  "action": {
+    "default_popup": "popup.html"
+  }
+}
