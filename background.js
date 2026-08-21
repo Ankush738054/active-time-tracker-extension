@@ -1,12 +1,16 @@
 // background.js - Time Tracker Background Engine
 
 let isBrowserFocused = false;
-let currentActiveDomain = null;
 let currentActiveTabId = null;
 let isAudiblePlayback = false;
 let isSystemIdle = false;
 
-const IDLE_DETECTION_INTERVAL = 15; // 15 seconds minimum for fast checking/testing
+// Tracking Engine state
+let currentTrackingDomain = null;
+let trackingStartTime = null;
+let currentReason = "";
+
+const IDLE_DETECTION_INTERVAL = 15; // 15 seconds minimum for testing
 
 function normalizeDomain(url) {
   if (!url) return null;
@@ -30,11 +34,59 @@ function normalizeDomain(url) {
   }
 }
 
+// Commit the current active interval to storage/logs
+function commitActivitySegment(transitionReason) {
+  if (!currentTrackingDomain || !trackingStartTime) return;
+
+  const now = Date.now();
+  let durationMs = now - trackingStartTime;
+
+  // Retroactive idle time adjustment:
+  // If the user goes idle, the idle check takes 15 seconds.
+  // We subtract this 15 seconds delay to prevent overcounting.
+  if (transitionReason === 'System Idle') {
+    const idleThresholdMs = IDLE_DETECTION_INTERVAL * 1000;
+    durationMs = Math.max(0, durationMs - idleThresholdMs);
+  }
+
+  const durationSeconds = Math.round(durationMs / 1000);
+
+  if (durationSeconds > 0) {
+    const segment = {
+      domain: currentTrackingDomain,
+      startTime: new Date(trackingStartTime).toISOString(),
+      endTime: new Date(now).toISOString(),
+      duration: durationSeconds,
+      browser: 'chrome', // Note: Brave shares chrome namespace APIs
+      mode: isAudiblePlayback ? 'audible-background' : 'foreground-focus',
+      reason: currentReason
+    };
+
+    console.log(`[ENGINE] Committed Activity Segment:`, segment);
+  } else {
+    console.log(`[ENGINE] Discarded segment for ${currentTrackingDomain} (duration < 1s after adjustment)`);
+  }
+
+  // Clear references
+  currentTrackingDomain = null;
+  trackingStartTime = null;
+}
+
 // Central state machine to evaluate what tab/domain should be tracked
 async function updateTrackingState() {
   try {
-    // 1. Check if user is idle
+    // Check for any tab currently playing audio/video
+    const audibleTabs = await chrome.tabs.query({ audible: true });
+    const hasAudible = audibleTabs && audibleTabs.length > 0;
+
+    // 1. Check if user is idle (but allow active audio playback to bypass idle pause)
     if (isSystemIdle) {
+      if (hasAudible) {
+        const audibleTab = audibleTabs[0];
+        const domain = normalizeDomain(audibleTab.url);
+        setTrackingTarget(audibleTab.id, domain, true, `Audible playback during system idle`);
+        return;
+      }
       setTrackingTarget(null, null, false, `System Idle`);
       return;
     }
@@ -62,8 +114,7 @@ async function updateTrackingState() {
     }
 
     // 4. If browser is not focused, scan for any tab currently playing audio/video
-    const audibleTabs = await chrome.tabs.query({ audible: true });
-    if (audibleTabs && audibleTabs.length > 0) {
+    if (hasAudible) {
       const audibleTab = audibleTabs[0];
       const domain = normalizeDomain(audibleTab.url);
       setTrackingTarget(audibleTab.id, domain, true, `Background Audible Tab`);
@@ -79,18 +130,28 @@ async function updateTrackingState() {
 
 // Helper to update the tracking state values and log changes
 function setTrackingTarget(tabId, domain, isAudible, reason) {
-  const domainChanged = currentActiveDomain !== domain;
+  const domainChanged = currentTrackingDomain !== domain;
   const stateChanged = currentActiveTabId !== tabId || isAudiblePlayback !== isAudible;
 
   if (domainChanged || stateChanged) {
+    // If we were already tracking a domain, commit its finished segment first
+    if (currentTrackingDomain) {
+      commitActivitySegment(reason);
+    }
+
     currentActiveTabId = tabId;
-    currentActiveDomain = domain;
     isAudiblePlayback = isAudible;
+    currentReason = reason;
 
     if (domain) {
+      currentTrackingDomain = domain;
+      trackingStartTime = Date.now();
+      
       const mode = isAudible ? "AUDIBLE BACKGROUND" : "FOREGROUND FOCUS";
       console.log(`[TRACKING] Active Domain: ${domain} | Mode: ${mode} | Reason: ${reason}`);
     } else {
+      currentTrackingDomain = null;
+      trackingStartTime = null;
       console.log(`[TRACKING] Paused | Reason: ${reason}`);
     }
   }
