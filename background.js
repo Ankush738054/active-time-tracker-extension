@@ -372,4 +372,46 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   }
 });
 
+// Privileged Background fetch router to bypass browser Extension popup CORS restrictions
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  const RENDER_BASE = 'https://active-time-tracker-backend.onrender.com/api';
+
+  if (request.action === 'login') {
+    fetch(`${RENDER_BASE}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request.payload)
+    })
+    .then(res => res.json())
+    .then(data => sendResponse(data))
+    .catch(err => sendResponse({ success: false, message: 'Server offline. Cannot connect.' }));
+    return true; // Keep message channel open for async response
+  }
+  
+  if (request.action === 'register') {
+    fetch(`${RENDER_BASE}/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request.payload)
+    })
+    .then(res => res.json())
+    .then(data => sendResponse(data))
+    .catch(err => sendResponse({ success: false, message: 'Server offline. Cannot connect.' }));
+    return true;
+  }
+
+  if (request.action === 'fetch_stats') {
+    fetch(`${RENDER_BASE}/activity/stats?range=today`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${request.token}`
+      }
+    })
+    .then(res => res.json())
+    .then(data => sendResponse(data))
+    .catch(err => sendResponse({ success: false, message: 'Server offline. Cannot connect.' }));
+    return true;
+  }
+});
+
 console.log("Background Service Worker Initialized.");

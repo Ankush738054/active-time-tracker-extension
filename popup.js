@@ -101,22 +101,11 @@ document.addEventListener('DOMContentLoaded', () => {
       ? { username: usernameVal, email: emailVal, password: passwordVal }
       : { email: emailVal, password: passwordVal };
 
-    authSubmitBtn.disabled = true;
-    authSubmitBtn.textContent = authMode === 'register' ? 'Registering...' : 'Logging in...';
-
-    fetch(`${API_URL}/${authMode}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(payload)
-    })
-    .then(res => res.json())
-    .then(data => {
+    chrome.runtime.sendMessage({ action: authMode, payload }, (data) => {
       authSubmitBtn.disabled = false;
       authSubmitBtn.textContent = authMode === 'register' ? 'Register' : 'Log In';
 
-      if (data.success) {
+      if (data && data.success) {
         // Save credentials to local storage
         chrome.storage.local.set({ token: data.token, user: data.user }, () => {
           authPanel.classList.remove('open');
@@ -124,15 +113,9 @@ document.addEventListener('DOMContentLoaded', () => {
           updatePopup();
         });
       } else {
-        authErrorMsg.textContent = data.message || 'Authentication failed';
+        authErrorMsg.textContent = (data && data.message) || 'Authentication failed';
         authErrorMsg.style.display = 'block';
       }
-    })
-    .catch(err => {
-      authSubmitBtn.disabled = false;
-      authSubmitBtn.textContent = authMode === 'register' ? 'Register' : 'Log In';
-      authErrorMsg.textContent = 'Server offline. Cannot sync right now.';
-      authErrorMsg.style.display = 'block';
     });
   });
 
@@ -261,16 +244,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const token = result.token;
 
       if (token) {
-        // Fetch stats from the Cloud API
-        fetch(STATS_URL, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        })
-        .then(res => res.json())
-        .then(data => {
-          if (data.success && data.summary) {
+        chrome.runtime.sendMessage({ action: 'fetch_stats', token }, (data) => {
+          if (data && data.success && data.summary) {
             let totalSecondsToday = data.summary.totalDuration;
 
             let activeSessionDuration = 0;
@@ -309,10 +284,6 @@ document.addEventListener('DOMContentLoaded', () => {
             // Fallback to local
             renderLocalStats(logs, session);
           }
-        })
-        .catch(() => {
-          // Fallback to local if server is offline
-          renderLocalStats(logs, session);
         });
       } else {
         // Fallback to local offline stats
