@@ -5,7 +5,8 @@
   "description": "Tracks active website time across Chrome and Brave, synced under a single user account.",
   "permissions": [
     "storage",
-    "tabs"
+    "tabs",
+    "idle"
   ],
   "background": {
     "service_worker": "background.js"
