@@ -293,6 +293,9 @@ document.addEventListener('DOMContentLoaded', () => {
       const session = result.activeSession;
       const token = result.token;
 
+      // Render local stats immediately to ensure zero UI delay on click
+      renderLocalStats(logs, session);
+
       if (token) {
         chrome.runtime.sendMessage({ action: 'fetch_stats', token }, (data) => {
           if (data && data.success && data.todaySummary) {
@@ -325,12 +328,8 @@ document.addEventListener('DOMContentLoaded', () => {
             todayTotalText.textContent = formatDurationTotal(totalSecondsToday);
             renderTopSitesList(cloudSites);
             renderTrackingState(activeDomain, activeSessionDuration, totalSecondsToday);
-          } else {
-            renderLocalStats(logs, session);
           }
         });
-      } else {
-        renderLocalStats(logs, session);
       }
     });
   }
