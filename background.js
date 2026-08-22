@@ -188,7 +188,12 @@ async function updateTrackingState() {
     }
 
     // 2. If the browser window has OS focus, track the active tab
-    const lastFocusedWin = await chrome.windows.getLastFocused({ populate: false });
+    let lastFocusedWin = null;
+    try {
+      lastFocusedWin = await chrome.windows.getLastFocused({ populate: false });
+    } catch (err) {
+      lastFocusedWin = null;
+    }
     if (lastFocusedWin && lastFocusedWin.state !== 'minimized' && lastFocusedWin.type === 'normal') {
       isBrowserFocused = lastFocusedWin.focused;
     } else {
