@@ -71,7 +71,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Open Full Web Dashboard in New Browser Tab
   dashboardLink.addEventListener('click', (e) => {
     e.preventDefault();
-    chrome.tabs.create({ url: 'http://localhost:5000' });
+    chrome.tabs.create({ url: 'https://active-time-tracker-backend.onrender.com' });
   });
 
   // Toggle Password Visibility Eye Button
