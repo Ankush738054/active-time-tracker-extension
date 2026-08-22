@@ -101,6 +101,9 @@ document.addEventListener('DOMContentLoaded', () => {
       ? { username: usernameVal, email: emailVal, password: passwordVal }
       : { email: emailVal, password: passwordVal };
 
+    authSubmitBtn.disabled = true;
+    authSubmitBtn.textContent = authMode === 'register' ? 'Registering...' : 'Logging in...';
+
     chrome.runtime.sendMessage({ action: authMode, payload }, (data) => {
       authSubmitBtn.disabled = false;
       authSubmitBtn.textContent = authMode === 'register' ? 'Register' : 'Log In';
