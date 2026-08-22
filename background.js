@@ -72,11 +72,35 @@ function updateHeartbeat() {
   }
 }
 
-// Recover previous session if the browser was closed or crashed unexpectedly
-function recoverPreviousSession(callback) {
+// Resume or recover previous session based on timing freshness
+function initializeSessionState(callback) {
   chrome.storage.local.get(['activeSession', 'activityLogs'], (result) => {
     const session = result.activeSession;
     if (session && session.domain && session.startTime && session.lastHeartbeatTime) {
+      const idleTimeMs = Date.now() - session.lastHeartbeatTime;
+      
+      // If the heartbeat is fresh (less than 5 minutes old), resume tracking the active session!
+      if (idleTimeMs < 5 * 60 * 1000) {
+        console.log(`[ENGINE] Resuming recent active session after worker wakeup:`, session);
+        currentTrackingDomain = session.domain;
+        trackingStartTime = session.startTime;
+        isAudiblePlayback = session.isAudible || false;
+        currentReason = session.reason || "Resumed from worker wakeup";
+        
+        if (heartbeatIntervalId) {
+          clearInterval(heartbeatIntervalId);
+        }
+        updateHeartbeat();
+        heartbeatIntervalId = setInterval(() => {
+          updateTrackingState();
+          updateHeartbeat();
+        }, 2000);
+        
+        if (callback) callback();
+        return;
+      }
+      
+      // If the heartbeat is old, recover the lost session log segment
       const durationMs = session.lastHeartbeatTime - session.startTime;
       const durationSeconds = Math.round(durationMs / 1000);
 
@@ -103,7 +127,8 @@ function recoverPreviousSession(callback) {
         return;
       }
     }
-    // If no recovery occurred, clean up key and trigger callback
+    
+    // Clean up empty or broken session
     chrome.storage.local.remove('activeSession', () => {
       if (callback) callback();
     });
@@ -308,7 +333,7 @@ chrome.windows.getLastFocused({ populate: false }, (win) => {
     isBrowserFocused = false;
   }
 
-  recoverPreviousSession(() => {
+  initializeSessionState(() => {
     chrome.idle.queryState(IDLE_DETECTION_INTERVAL, (state) => {
       isSystemIdle = (state === 'idle' || state === 'locked');
       updateTrackingState();
