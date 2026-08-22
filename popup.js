@@ -197,6 +197,19 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
+    // Manual validations to replace native HTML validation blocks
+    if (!emailVal) {
+      authErrorMsg.textContent = 'Please enter your email address';
+      authErrorMsg.style.display = 'block';
+      return;
+    }
+
+    if (!passwordVal) {
+      authErrorMsg.textContent = 'Please enter your password';
+      authErrorMsg.style.display = 'block';
+      return;
+    }
+
     if (authMode === 'register' && !usernameVal) {
       authErrorMsg.textContent = 'Please enter a username';
       authErrorMsg.style.display = 'block';

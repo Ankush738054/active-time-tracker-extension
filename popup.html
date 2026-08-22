@@ -106,12 +106,12 @@
           </div>
           <div class="form-group">
             <label for="auth-email">Email</label>
-            <input type="email" id="auth-email" required placeholder="Enter email">
+            <input type="email" id="auth-email" placeholder="Enter email">
           </div>
           <div class="form-group">
             <label for="auth-password">Password</label>
             <div class="password-wrapper">
-              <input type="password" id="auth-password" required placeholder="Enter password">
+              <input type="password" id="auth-password" placeholder="Enter password">
               <button type="button" class="btn-toggle-password" id="toggle-password-btn" title="Toggle password visibility">👁️</button>
             </div>
           </div>
@@ -120,7 +120,7 @@
               <label for="auth-otp" style="margin: 0;">One-Time Password (OTP)</label>
               <a href="#" id="auth-resend-link" style="font-size: 0.72rem; color: #00F2FE; text-decoration: none; font-weight: 600;">Resend OTP</a>
             </div>
-            <input type="text" id="auth-otp" placeholder="Enter 6-digit verification code" maxlength="6" pattern="\\d{6}">
+            <input type="text" id="auth-otp" placeholder="Enter 6-digit verification code" maxlength="6">
           </div>
           <div class="error-msg" id="auth-error-msg" style="display: none;"></div>
           <button type="submit" class="btn btn-submit" id="auth-submit-btn">Log In</button>
