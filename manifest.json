@@ -9,6 +9,9 @@
     "idle",
     "alarms"
   ],
+  "host_permissions": [
+    "https://active-time-tracker-backend.onrender.com/*"
+  ],
   "background": {
     "service_worker": "background.js"
   },
