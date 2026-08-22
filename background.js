@@ -38,6 +38,24 @@ function normalizeDomain(url) {
   }
 }
 
+// Detect browser name dynamically
+function getBrowserName() {
+  const ua = navigator.userAgent;
+  if (navigator.brave && (typeof navigator.brave.isBrave === 'function' || navigator.brave)) {
+    return 'brave';
+  }
+  if (ua.indexOf('Edg/') > -1) {
+    return 'edge';
+  }
+  if (ua.indexOf('OPR/') > -1 || ua.indexOf('Opera/') > -1) {
+    return 'opera';
+  }
+  if (ua.indexOf('Chrome/') > -1) {
+    return 'chrome';
+  }
+  return 'other';
+}
+
 // Writes active session metadata to local storage
 function updateHeartbeat() {
   if (currentTrackingDomain && trackingStartTime) {
@@ -68,7 +86,7 @@ function recoverPreviousSession(callback) {
           startTime: new Date(session.startTime).toISOString(),
           endTime: new Date(session.lastHeartbeatTime).toISOString(),
           duration: durationSeconds,
-          browser: 'chrome',
+          browser: getBrowserName(),
           mode: session.isAudible ? 'audible-background' : 'foreground-focus',
           reason: `${session.reason} (Recovered Session)`
         };
@@ -114,7 +132,7 @@ function commitActivitySegment(transitionReason) {
       startTime: new Date(trackingStartTime).toISOString(),
       endTime: new Date(now).toISOString(),
       duration: durationSeconds,
-      browser: 'chrome', 
+      browser: getBrowserName(), 
       mode: isAudiblePlayback ? 'audible-background' : 'foreground-focus',
       reason: currentReason
     };
