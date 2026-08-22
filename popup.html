@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Time Tracker</title>
+  <title>ActiveTime Tracker</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -20,8 +20,8 @@
             <path d="M12 6v6l4 2" stroke="url(#header-logo-grad)" stroke-width="2.5" stroke-linecap="round" fill="none"/>
             <defs>
               <linearGradient id="header-logo-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stop-color="#06b6d4" />
-                <stop offset="100%" stop-color="#a855f7" />
+                <stop offset="0%" stop-color="#00F2FE" />
+                <stop offset="100%" stop-color="#7928CA" />
               </linearGradient>
             </defs>
           </svg>
@@ -33,24 +33,55 @@
           <span id="status-text">Idle</span>
         </div>
       </header>
-      
-      <div class="tracking-info">
-        <div class="label">Current Website</div>
-        <div class="value" id="current-domain">None</div>
-      </div>
-      
-      <div class="divider"></div>
-      
-      <div class="stats-container">
-        <div class="stat-box total-box">
-          <div class="stat-label">Today's Total Time</div>
-          <div class="stat-value" id="today-total">0m</div>
+
+      <!-- Live Session Timer Card -->
+      <div class="live-session-card">
+        <div class="live-session-icon">
+          <img id="live-session-favicon" src="https://www.google.com/s2/favicons?domain=google.com&sz=32" alt="Favicon">
         </div>
-        
-        <div class="stat-box leaderboard-box">
-          <div class="stat-label">Top Websites Today</div>
-          <div class="leaderboard-list" id="leaderboard-list">
-            <div class="leaderboard-item empty">No sites tracked today</div>
+        <div class="live-session-info">
+          <span class="live-session-label">Live Session Timer</span>
+          <div class="live-session-text" id="live-session-text">
+            <span class="time" id="live-session-timer">0s</span> on <span id="current-domain">None</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Hero Speedometer / Radial Gauge -->
+      <div class="radial-gauge-container">
+        <svg class="radial-gauge" viewBox="0 0 100 100">
+          <path class="gauge-bg" d="M 20 80 A 40 40 0 1 1 80 80" fill="none" stroke-width="6" stroke-linecap="round"/>
+          <path class="gauge-fill" id="gauge-fill" d="M 20 80 A 40 40 0 1 1 80 80" fill="none" stroke="url(#gauge-grad)" stroke-width="6" stroke-linecap="round" stroke-dasharray="188.5" stroke-dashoffset="188.5"/>
+        </svg>
+        <div class="gauge-content">
+          <span class="gauge-label">Today's Total Time</span>
+          <h2 class="gauge-value" id="today-total">0m</h2>
+        </div>
+      </div>
+
+      <!-- Top Websites Leaderboard Box -->
+      <div class="section-box">
+        <div class="section-label">Top Websites Today</div>
+        <div class="leaderboard-list" id="leaderboard-list">
+          <div class="leaderboard-item empty">No sites tracked today</div>
+        </div>
+      </div>
+
+      <!-- 24-Hour Activity Strip Box -->
+      <div class="section-box">
+        <div class="heat-strip-container">
+          <div class="section-label">24-Hour Activity Strip</div>
+          <div class="heat-strip-bars" id="heat-strip-bars">
+            <!-- Populated via Javascript -->
+          </div>
+          <div class="heat-strip-hours">
+            <span>0h</span>
+            <span>04</span>
+            <span>08</span>
+            <span>12h</span>
+            <span>16h</span>
+            <span>20h</span>
+            <span>24h</span>
           </div>
         </div>
       </div>
@@ -61,7 +92,7 @@
 
     <div class="profile-container" id="profile-container" style="display: none;">
       <div class="profile-info">
-        <span class="cloud-icon">☁</span>
+        <div class="profile-avatar" id="profile-avatar">A</div>
         <span id="profile-username">Logged in</span>
       </div>
       <button class="btn btn-logout" id="logout-btn">Log Out</button>
@@ -77,8 +108,8 @@
               <path d="M12 6v6l4 2" stroke="url(#auth-logo-grad)" stroke-width="2.5" stroke-linecap="round" fill="none"/>
               <defs>
                 <linearGradient id="auth-logo-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stop-color="#06b6d4" />
-                  <stop offset="100%" stop-color="#a855f7" />
+                  <stop offset="0%" stop-color="#00F2FE" />
+                  <stop offset="100%" stop-color="#7928CA" />
                 </linearGradient>
               </defs>
             </svg>

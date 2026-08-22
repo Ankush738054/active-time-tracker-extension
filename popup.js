@@ -156,6 +156,35 @@ document.addEventListener('DOMContentLoaded', () => {
     return `${mins}m`;
   }
 
+  // Helper to format seconds to "Xh Ym Zs" or "Ym Zs" or "Zs"
+  function formatDurationLive(totalSeconds) {
+    const hrs = Math.floor(totalSeconds / 3600);
+    const mins = Math.floor((totalSeconds % 3600) / 60);
+    const secs = totalSeconds % 60;
+    if (hrs > 0) {
+      return `${hrs}h ${mins}m ${secs}s`;
+    }
+    if (mins > 0) {
+      return `${mins}m ${secs}s`;
+    }
+    return `${secs}s`;
+  }
+
+  // Domain Categorization Classifier
+  function getCategoryTag(domain) {
+    const d = domain.toLowerCase();
+    if (d.includes('github') || d.includes('stackoverflow') || d.includes('leet') || d.includes('docs') || d.includes('gitlab') || d.includes('medium') || d.includes('npm')) {
+      return '<span class="category-pill focus">Focus</span>';
+    }
+    if (d.includes('gmail') || d.includes('google') || d.includes('meet') || d.includes('zoom') || d.includes('slack') || d.includes('teams') || d.includes('outlook') || d.includes('render')) {
+      return '<span class="category-pill work">Work</span>';
+    }
+    if (d.includes('youtube') || d.includes('netflix') || d.includes('facebook') || d.includes('instagram') || d.includes('twitter') || d.includes('reddit') || d.includes('spotify') || d.includes('tiktok') || d.includes('pinterest')) {
+      return '<span class="category-pill distraction">Distract</span>';
+    }
+    return '<span class="category-pill utility">Utility</span>';
+  }
+
   // Renders the top 3 websites leaderboard list
   function renderTopSitesList(sortedSites) {
     if (!sortedSites || sortedSites.length === 0) {
@@ -167,17 +196,62 @@ document.addEventListener('DOMContentLoaded', () => {
     let html = '';
     
     top3.forEach((site, index) => {
+      const categoryTag = getCategoryTag(site.domain);
+      const faviconUrl = `https://www.google.com/s2/favicons?domain=${site.domain}&sz=32`;
       html += `
         <div class="leaderboard-item">
           <div class="rank-domain">
             <span class="rank-num">#${index + 1}</span>
+            <img class="favicon-img" src="${faviconUrl}" onerror="this.src='https://www.google.com/s2/favicons?domain=google.com&sz=32'" alt="Favicon">
             <span class="domain-name" title="${site.domain}">${site.domain}</span>
           </div>
-          <span class="time-spent">${formatDurationTotal(site.duration)}</span>
+          <div class="right-content">
+            ${categoryTag}
+            <span class="time-spent">${formatDurationTotal(site.duration)}</span>
+          </div>
         </div>
       `;
     });
     leaderboardList.innerHTML = html;
+  }
+
+  // Renders a 24-Hour activity distribution heat strip
+  function renderHeatStrip(logs, session) {
+    const heatStripBars = document.getElementById('heat-strip-bars');
+    if (!heatStripBars) return;
+
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+
+    const todayLogs = logs.filter(log => new Date(log.startTime).getTime() >= startOfToday);
+    const hourlySeconds = Array(24).fill(0);
+
+    todayLogs.forEach(log => {
+      const hr = new Date(log.startTime).getHours();
+      if (hr >= 0 && hr < 24) {
+        hourlySeconds[hr] += log.duration;
+      }
+    });
+
+    if (session && session.domain && session.startTime) {
+      const startHr = new Date(session.startTime).getHours();
+      if (startHr >= 0 && startHr < 24) {
+        const sessionSecs = Math.floor((Date.now() - session.startTime) / 1000);
+        hourlySeconds[startHr] += sessionSecs;
+      }
+    }
+
+    const maxHourSecs = Math.max(...hourlySeconds);
+    let html = '';
+    for (let i = 0; i < 24; i++) {
+      const secs = hourlySeconds[i];
+      const pct = maxHourSecs > 0 ? (secs / maxHourSecs) * 100 : 0;
+      const isActiveClass = secs > 0 ? 'active' : '';
+      const displayMins = Math.round(secs / 60);
+      const titleAttr = `title="${i}h: ${displayMins}m tracked"`;
+      html += `<div class="heat-bar ${isActiveClass}" ${titleAttr} style="height: ${Math.max(2, pct * 0.85)}px;"></div>`;
+    }
+    heatStripBars.innerHTML = html;
   }
 
   // Local calculations helper (Fallback)
@@ -185,7 +259,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const now = new Date();
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
 
-    // Filter local storage logs recorded today
     const todayLogs = logs.filter(log => new Date(log.startTime).getTime() >= startOfToday);
 
     const domainDurations = {};
@@ -207,7 +280,6 @@ document.addEventListener('DOMContentLoaded', () => {
       totalSecondsToday += activeSessionDuration;
     }
 
-    // Convert map to sorted array
     const sortedSites = Object.entries(domainDurations).map(([domain, duration]) => ({
       domain,
       duration
@@ -215,27 +287,41 @@ document.addEventListener('DOMContentLoaded', () => {
 
     todayTotalText.textContent = formatDurationTotal(totalSecondsToday);
     renderTopSitesList(sortedSites);
-    renderTrackingState(activeDomain);
+    renderTrackingState(activeDomain, activeSessionDuration, totalSecondsToday);
   }
 
   // Render tracking badges dynamically
-  function renderTrackingState(activeDomain) {
+  function renderTrackingState(activeDomain, activeSessionDuration, totalSecondsToday) {
+    const statusContainer = document.getElementById('status-container');
+    const statusText = document.getElementById('status-text');
+    const domainText = document.getElementById('current-domain');
+    const liveSessionFavicon = document.getElementById('live-session-favicon');
+    const liveSessionTimer = document.getElementById('live-session-timer');
+    const gaugeFill = document.getElementById('gauge-fill');
+
+    if (gaugeFill) {
+      const targetHoursInSecs = 8 * 3600; // 8 Hours Daily Goal
+      const fraction = Math.min(1, totalSecondsToday / targetHoursInSecs);
+      const strokeDashoffset = 188.5 - (fraction * 188.5);
+      gaugeFill.setAttribute('stroke-dashoffset', strokeDashoffset);
+    }
+
     if (activeDomain) {
-      domainText.textContent = activeDomain;
-      statusText.textContent = 'Tracking';
-      statusContainer.style.background = 'rgba(6, 182, 212, 0.15)';
-      statusContainer.style.borderColor = 'rgba(6, 182, 212, 0.25)';
-      statusContainer.style.color = '#06b6d4';
-      document.querySelector('.status-dot').style.backgroundColor = '#06b6d4';
-      document.querySelector('.status-dot').style.boxShadow = '0 0 8px #06b6d4';
+      if (statusContainer) statusContainer.classList.add('live');
+      if (statusText) statusText.textContent = 'Live Tracking';
+      if (domainText) domainText.textContent = activeDomain;
+      if (liveSessionTimer) liveSessionTimer.innerHTML = `<span class="time">${formatDurationLive(activeSessionDuration)}</span>`;
+      if (liveSessionFavicon) {
+        liveSessionFavicon.src = `https://www.google.com/s2/favicons?domain=${activeDomain}&sz=32`;
+      }
     } else {
-      domainText.textContent = 'None';
-      statusText.textContent = 'Idle';
-      statusContainer.style.background = 'rgba(148, 163, 184, 0.1)';
-      statusContainer.style.borderColor = 'rgba(148, 163, 184, 0.2)';
-      statusContainer.style.color = '#94a3b8';
-      document.querySelector('.status-dot').style.backgroundColor = '#94a3b8';
-      document.querySelector('.status-dot').style.boxShadow = 'none';
+      if (statusContainer) statusContainer.classList.remove('live');
+      if (statusText) statusText.textContent = 'Idle';
+      if (domainText) domainText.textContent = 'None';
+      if (liveSessionTimer) liveSessionTimer.innerHTML = `<span class="time">0s</span>`;
+      if (liveSessionFavicon) {
+        liveSessionFavicon.src = `https://www.google.com/s2/favicons?domain=google.com&sz=32`;
+      }
     }
   }
 
@@ -245,6 +331,9 @@ document.addEventListener('DOMContentLoaded', () => {
       const logs = result.activityLogs || [];
       const session = result.activeSession;
       const token = result.token;
+
+      // Render 24-Hour heat strip on every tick
+      renderHeatStrip(logs, session);
 
       if (token) {
         chrome.runtime.sendMessage({ action: 'fetch_stats', token }, (data) => {
@@ -257,18 +346,14 @@ document.addEventListener('DOMContentLoaded', () => {
             if (session && session.domain && session.startTime) {
               activeDomain = session.domain;
               activeSessionDuration = Math.floor((Date.now() - session.startTime) / 1000);
-              
-              // Include the ticking ongoing local session in real-time totals
               totalSecondsToday += activeSessionDuration;
             }
 
-            // Map data.todayRankings (format {_id, totalDuration}) to client layout format ({domain, duration})
             let cloudSites = (data.todayRankings || []).map(item => ({
               domain: item._id,
               duration: item.totalDuration
             }));
 
-            // Include ongoing local session in rankings listing dynamically
             if (activeDomain && activeSessionDuration > 0) {
               const existingIndex = cloudSites.findIndex(item => item.domain === activeDomain);
               if (existingIndex !== -1) {
@@ -276,20 +361,17 @@ document.addEventListener('DOMContentLoaded', () => {
               } else {
                 cloudSites.push({ domain: activeDomain, duration: activeSessionDuration });
               }
-              // Re-sort descending
               cloudSites.sort((a, b) => b.duration - a.duration);
             }
 
             todayTotalText.textContent = formatDurationTotal(totalSecondsToday);
             renderTopSitesList(cloudSites);
-            renderTrackingState(activeDomain);
+            renderTrackingState(activeDomain, activeSessionDuration, totalSecondsToday);
           } else {
-            // Fallback to local
             renderLocalStats(logs, session);
           }
         });
       } else {
-        // Fallback to local offline stats
         renderLocalStats(logs, session);
       }
     });
