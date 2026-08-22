@@ -448,6 +448,18 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
   }
 
+  if (request.action === 'verify-otp') {
+    fetch(`${RENDER_BASE}/auth/verify-otp`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request.payload)
+    })
+    .then(res => res.json())
+    .then(data => sendResponse(data))
+    .catch(err => sendResponse({ success: false, message: 'Server offline. Cannot connect.' }));
+    return true;
+  }
+
   if (request.action === 'fetch_stats') {
     fetch(`${RENDER_BASE}/activity/stats?range=today`, {
       method: 'GET',

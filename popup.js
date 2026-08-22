@@ -29,6 +29,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const profileUsername = document.getElementById('profile-username');
   const logoutBtn = document.getElementById('logout-btn');
   const dashboardLink = document.getElementById('dashboard-link');
+  const otpGroup = document.getElementById('otp-group');
+  const authOtp = document.getElementById('auth-otp');
+  const authResendLink = document.getElementById('auth-resend-link');
 
   const API_URL = 'https://active-time-tracker-backend.onrender.com/api/auth';
   const STATS_URL = 'https://active-time-tracker-backend.onrender.com/api/activity/stats?range=today';
@@ -42,11 +45,38 @@ document.addEventListener('DOMContentLoaded', () => {
   let lastFetchTime = 0;
   let lastRenderedLeaderboardJSON = '';
 
+  // Helper to reset auth form to initial state
+  function resetAuthForm() {
+    authErrorMsg.style.display = 'none';
+    authErrorMsg.style.color = '#ef4444';
+    authForm.reset();
+    
+    // Restore normal inputs visibility
+    authEmail.parentElement.style.display = 'flex';
+    const pwFormGroup = authPassword.closest('.form-group');
+    if (pwFormGroup) pwFormGroup.style.display = 'flex';
+    otpGroup.style.display = 'none';
+    
+    authMode = 'login';
+    authTitle.textContent = 'Log In';
+    usernameGroup.style.display = 'none';
+    authSubmitBtn.textContent = 'Log In';
+    authToggleMsg.textContent = "Don't have an account?";
+    authToggleLink.textContent = 'Register';
+
+    // Reset popup height to fit regular content
+    document.body.style.height = 'auto';
+    document.documentElement.style.height = 'auto';
+  }
+
   // Toggle Auth Modes (Login / Register)
   authToggleLink.addEventListener('click', (e) => {
     e.preventDefault();
-    authErrorMsg.style.display = 'none';
-    authForm.reset();
+    resetAuthForm();
+
+    // Set height to expand for auth panel inputs
+    document.body.style.height = '540px';
+    document.documentElement.style.height = '540px';
 
     if (authMode === 'login') {
       authMode = 'register';
@@ -67,13 +97,47 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Open / Close Auth Overlays
   cloudToggleBtn.addEventListener('click', () => {
-    authErrorMsg.style.display = 'none';
-    authForm.reset();
+    resetAuthForm();
     authPanel.classList.add('open');
+    document.body.style.height = '540px';
+    document.documentElement.style.height = '540px';
   });
 
   authCloseBtn.addEventListener('click', () => {
     authPanel.classList.remove('open');
+    resetAuthForm();
+  });
+
+  // Resend OTP Action link inside verify-otp state
+  authResendLink.addEventListener('click', (e) => {
+    e.preventDefault();
+    const emailVal = authEmail.value.trim();
+    if (!emailVal) {
+      authErrorMsg.textContent = 'Email address missing. Please close and try again.';
+      authErrorMsg.style.color = '#ef4444';
+      authErrorMsg.style.display = 'block';
+      return;
+    }
+
+    authErrorMsg.textContent = 'Resending verification OTP code...';
+    authErrorMsg.style.color = '#00F2FE';
+    authErrorMsg.style.display = 'block';
+
+    const payload = {
+      username: regUsername.value.trim() || 'user',
+      email: emailVal,
+      password: authPassword.value || '123456'
+    };
+
+    chrome.runtime.sendMessage({ action: 'register', payload }, (data) => {
+      if (data && data.success) {
+        authErrorMsg.textContent = 'New verification code sent to your email!';
+        authErrorMsg.style.color = '#00F2FE';
+      } else {
+        authErrorMsg.textContent = (data && data.message) || 'Failed to resend code';
+        authErrorMsg.style.color = '#ef4444';
+      }
+    });
   });
 
   // Open Full Web Dashboard in New Browser Tab
@@ -90,14 +154,48 @@ document.addEventListener('DOMContentLoaded', () => {
     togglePasswordBtn.textContent = type === 'password' ? '👁️' : '🙈';
   });
 
-  // Submit Registration or Login Forms
+  // Submit Registration, Login or Verification forms
   authForm.addEventListener('submit', (e) => {
     e.preventDefault();
     authErrorMsg.style.display = 'none';
+    authErrorMsg.style.color = '#ef4444'; // Default to red
 
     const emailVal = authEmail.value.trim();
     const passwordVal = authPassword.value;
     const usernameVal = regUsername.value.trim();
+    const otpVal = authOtp.value.trim();
+
+    if (authMode === 'verify-otp') {
+      if (!otpVal || otpVal.length !== 6) {
+        authErrorMsg.textContent = 'Please enter a valid 6-digit verification code';
+        authErrorMsg.style.display = 'block';
+        return;
+      }
+
+      authSubmitBtn.disabled = true;
+      authSubmitBtn.textContent = 'Verifying...';
+
+      chrome.runtime.sendMessage({
+        action: 'verify-otp',
+        payload: { email: emailVal, otp: otpVal }
+      }, (data) => {
+        authSubmitBtn.disabled = false;
+        authSubmitBtn.textContent = 'Verify Code';
+
+        if (data && data.success) {
+          chrome.storage.local.set({ token: data.token, user: data.user }, () => {
+            authPanel.classList.remove('open');
+            resetAuthForm();
+            updateAuthUI();
+            updatePopup();
+          });
+        } else {
+          authErrorMsg.textContent = (data && data.message) || 'OTP Verification failed';
+          authErrorMsg.style.display = 'block';
+        }
+      });
+      return;
+    }
 
     if (authMode === 'register' && !usernameVal) {
       authErrorMsg.textContent = 'Please enter a username';
@@ -117,15 +215,47 @@ document.addEventListener('DOMContentLoaded', () => {
       authSubmitBtn.textContent = authMode === 'register' ? 'Register' : 'Log In';
 
       if (data && data.success) {
-        // Save credentials to local storage
-        chrome.storage.local.set({ token: data.token, user: data.user }, () => {
-          authPanel.classList.remove('open');
-          updateAuthUI();
-          updatePopup();
-        });
+        if (data.needsVerification) {
+          // Transition to OTP verification state
+          authMode = 'verify-otp';
+          authTitle.textContent = 'Verify Email';
+          authSubmitBtn.textContent = 'Verify Code';
+          usernameGroup.style.display = 'none';
+          authEmail.parentElement.style.display = 'none';
+          const pwFormGroup = authPassword.closest('.form-group');
+          if (pwFormGroup) pwFormGroup.style.display = 'none';
+          otpGroup.style.display = 'flex';
+
+          authErrorMsg.textContent = data.message;
+          authErrorMsg.style.color = '#00F2FE'; // Cyan info text
+          authErrorMsg.style.display = 'block';
+        } else {
+          chrome.storage.local.set({ token: data.token, user: data.user }, () => {
+            authPanel.classList.remove('open');
+            resetAuthForm();
+            updateAuthUI();
+            updatePopup();
+          });
+        }
       } else {
-        authErrorMsg.textContent = (data && data.message) || 'Authentication failed';
-        authErrorMsg.style.display = 'block';
+        // Check if unverified user is trying to log in
+        if (data && data.needsVerification) {
+          authMode = 'verify-otp';
+          authTitle.textContent = 'Verify Email';
+          authSubmitBtn.textContent = 'Verify Code';
+          usernameGroup.style.display = 'none';
+          authEmail.parentElement.style.display = 'none';
+          const pwFormGroup = authPassword.closest('.form-group');
+          if (pwFormGroup) pwFormGroup.style.display = 'none';
+          otpGroup.style.display = 'flex';
+
+          authErrorMsg.textContent = data.message;
+          authErrorMsg.style.color = '#00F2FE'; // Cyan info text
+          authErrorMsg.style.display = 'block';
+        } else {
+          authErrorMsg.textContent = (data && data.message) || 'Authentication failed';
+          authErrorMsg.style.display = 'block';
+        }
       }
     });
   });
@@ -178,22 +308,22 @@ document.addEventListener('DOMContentLoaded', () => {
     return `${secs}s`;
   }
 
-  // Renders the top 3 websites leaderboard list (Only updates DOM if JSON content changes to prevent favicon blinking)
+  // Renders the top 5 websites leaderboard list (Only updates DOM if JSON content changes to prevent favicon blinking)
   function renderLeaderboard(sortedSites) {
-    const top3 = (sortedSites || []).slice(0, 3);
-    const currentJSON = JSON.stringify(top3);
+    const top5 = (sortedSites || []).slice(0, 5);
+    const currentJSON = JSON.stringify(top5);
     if (currentJSON === lastRenderedLeaderboardJSON) {
       return; // Skip rendering if list is unchanged
     }
     lastRenderedLeaderboardJSON = currentJSON;
 
-    if (top3.length === 0) {
+    if (top5.length === 0) {
       leaderboardList.innerHTML = '<div class="leaderboard-item empty">No sites tracked today</div>';
       return;
     }
 
     let html = '';
-    top3.forEach((site, index) => {
+    top5.forEach((site, index) => {
       const faviconUrl = `https://www.google.com/s2/favicons?domain=${site.domain}&sz=32`;
       html += `
         <div class="leaderboard-item">
