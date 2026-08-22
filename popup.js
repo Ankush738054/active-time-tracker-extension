@@ -213,58 +213,7 @@ document.addEventListener('DOMContentLoaded', () => {
     leaderboardList.innerHTML = html;
   }
 
-  // Renders a 24-Hour activity distribution heat strip (Capped at 3600s per hour to handle outliers)
-  function renderHeatStrip(logs, session, cloudHourlyStats) {
-    const heatStripBars = document.getElementById('heat-strip-bars');
-    if (!heatStripBars) return;
 
-    const hourlySeconds = Array(24).fill(0);
-
-    if (cloudHourlyStats && Array.isArray(cloudHourlyStats)) {
-      cloudHourlyStats.forEach(item => {
-        const hr = parseInt(item._id, 10);
-        if (hr >= 0 && hr < 24) {
-          hourlySeconds[hr] = item.totalDuration;
-        }
-      });
-    } else {
-      const now = new Date();
-      const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-      const todayLogs = logs.filter(log => new Date(log.startTime).getTime() >= startOfToday);
-
-      todayLogs.forEach(log => {
-        const hr = new Date(log.startTime).getHours();
-        if (hr >= 0 && hr < 24) {
-          hourlySeconds[hr] += log.duration;
-        }
-      });
-    }
-
-    if (session && session.domain && session.startTime) {
-      const startHr = new Date(session.startTime).getHours();
-      if (startHr >= 0 && startHr < 24) {
-        const sessionSecs = Math.floor((Date.now() - session.startTime) / 1000);
-        hourlySeconds[startHr] += sessionSecs;
-      }
-    }
-
-    // Cap each hour to maximum of 3600 seconds to prevent tracking outliers from breaking vertical scale
-    for (let i = 0; i < 24; i++) {
-      hourlySeconds[i] = Math.min(3600, hourlySeconds[i]);
-    }
-
-    const maxHourSecs = Math.min(3600, Math.max(...hourlySeconds));
-    let html = '';
-    for (let i = 0; i < 24; i++) {
-      const secs = hourlySeconds[i];
-      const pct = maxHourSecs > 0 ? (secs / maxHourSecs) * 100 : 0;
-      const isActiveClass = secs > 0 ? 'active' : '';
-      const displayMins = Math.round(secs / 60);
-      const titleAttr = `title="${i}h: ${displayMins}m tracked"`;
-      html += `<div class="heat-bar ${isActiveClass}" ${titleAttr} style="height: ${Math.max(2, (pct / 100) * 24)}px;"></div>`;
-    }
-    heatStripBars.innerHTML = html;
-  }
 
   // Local calculations helper (Fallback)
   function renderLocalStats(logs, session) {
@@ -376,15 +325,12 @@ document.addEventListener('DOMContentLoaded', () => {
             todayTotalText.textContent = formatDurationTotal(totalSecondsToday);
             renderTopSitesList(cloudSites);
             renderTrackingState(activeDomain, activeSessionDuration, totalSecondsToday);
-            renderHeatStrip(logs, session, data.todayHourlyTimeline);
           } else {
             renderLocalStats(logs, session);
-            renderHeatStrip(logs, session, null);
           }
         });
       } else {
         renderLocalStats(logs, session);
-        renderHeatStrip(logs, session, null);
       }
     });
   }
