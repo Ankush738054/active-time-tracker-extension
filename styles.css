@@ -15,7 +15,7 @@
 body {
   margin: 0;
   padding: 0;
-  width: 375px;
+  width: 350px;
   background-color: var(--bg-primary);
   font-family: var(--font-family);
   color: var(--text-primary);
@@ -26,11 +26,11 @@ body {
 
 /* Glassmorphism Outer Wrapper */
 .container {
-  padding: 20px;
+  padding: 12px;
   background: radial-gradient(circle at top left, rgba(0, 242, 254, 0.07), transparent 60%),
               radial-gradient(circle at bottom right, rgba(121, 40, 202, 0.07), transparent 60%),
               var(--bg-primary);
-  min-height: 520px;
+  min-height: 480px;
   display: flex;
   flex-direction: column;
 }
@@ -41,9 +41,9 @@ body {
   border: 1px solid var(--border-glass);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border-radius: 20px;
-  padding: 18px;
-  box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.5);
+  border-radius: 16px;
+  padding: 12px;
+  box-shadow: 0 10px 30px 0 rgba(0, 0, 0, 0.5);
   transition: border-color 0.4s ease, box-shadow 0.4s ease;
   position: relative;
   overflow: hidden;
@@ -62,7 +62,7 @@ body {
 
 .card:hover {
   border-color: var(--border-glow);
-  box-shadow: 0 12px 40px 0 rgba(0, 242, 254, 0.12);
+  box-shadow: 0 10px 30px 0 rgba(0, 242, 254, 0.12);
 }
 
 /* Header layout */
@@ -70,7 +70,7 @@ header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 20px;
+  margin-bottom: 12px;
 }
 
 h1 {
@@ -147,18 +147,18 @@ h1 {
 .live-session-card {
   background: rgba(255, 255, 255, 0.02);
   border: 1px solid rgba(255, 255, 255, 0.04);
-  border-radius: 12px;
-  padding: 10px 14px;
-  margin-bottom: 20px;
+  border-radius: 10px;
+  padding: 6px 10px;
+  margin-bottom: 12px;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
 }
 
 .live-session-icon {
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
   background: rgba(255, 255, 255, 0.05);
   display: flex;
   align-items: center;
@@ -168,21 +168,21 @@ h1 {
 }
 
 .live-session-icon img {
-  width: 16px;
-  height: 16px;
+  width: 12px;
+  height: 12px;
   object-fit: contain;
 }
 
 .live-session-info {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
   flex: 1;
   min-width: 0;
 }
 
 .live-session-label {
-  font-size: 0.65rem;
+  font-size: 0.6rem;
   font-weight: 600;
   text-transform: uppercase;
   color: var(--text-secondary);
@@ -190,7 +190,7 @@ h1 {
 }
 
 .live-session-text {
-  font-size: 0.88rem;
+  font-size: 0.78rem;
   font-weight: 600;
   color: var(--text-primary);
   white-space: nowrap;
@@ -210,17 +210,17 @@ h1 {
 /* Hero Speedometer / Radial Gauge Widget */
 .radial-gauge-container {
   position: relative;
-  width: 170px;
-  height: 105px;
-  margin: 10px auto 22px auto;
+  width: 140px;
+  height: 80px;
+  margin: 6px auto 14px auto;
   display: flex;
   justify-content: center;
   overflow: hidden;
 }
 
 .radial-gauge {
-  width: 170px;
-  height: 170px;
+  width: 140px;
+  height: 140px;
 }
 
 .gauge-bg {
@@ -242,11 +242,11 @@ h1 {
   align-items: center;
   justify-content: flex-end;
   height: 100%;
-  padding-bottom: 5px;
+  padding-bottom: 2px;
 }
 
 .gauge-label {
-  font-size: 0.68rem;
+  font-size: 0.62rem;
   color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -254,9 +254,9 @@ h1 {
 }
 
 .gauge-value {
-  font-size: 1.55rem;
+  font-size: 1.3rem;
   font-weight: 800;
-  margin: 2px 0 0 0;
+  margin: 1px 0 0 0;
   letter-spacing: -0.02em;
   background: linear-gradient(180deg, #FFFFFF 0%, #E2E8F0 100%);
   -webkit-background-clip: text;
@@ -267,32 +267,32 @@ h1 {
 .divider {
   height: 1px;
   background: linear-gradient(90deg, transparent, var(--border-glass), transparent);
-  margin: 18px 0;
+  margin: 10px 0;
 }
 
 /* Section Box Layout */
 .section-box {
   background: rgba(0, 0, 0, 0.2);
   border: 1px solid rgba(255, 255, 255, 0.02);
-  border-radius: 14px;
-  padding: 12px;
-  margin-top: 14px;
+  border-radius: 10px;
+  padding: 8px 10px;
+  margin-top: 10px;
 }
 
 .section-label {
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   font-weight: 600;
   color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  margin-bottom: 10px;
+  margin-bottom: 6px;
 }
 
 /* Top Websites List Styling */
 .leaderboard-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 5px;
 }
 
 .leaderboard-item {
@@ -301,8 +301,8 @@ h1 {
   align-items: center;
   background: rgba(255, 255, 255, 0.01);
   border: 1px solid rgba(255, 255, 255, 0.02);
-  border-radius: 10px;
-  padding: 8px 10px;
+  border-radius: 8px;
+  padding: 5px 8px;
   transition: background 0.2s ease, border-color 0.2s ease;
 }
 
@@ -399,27 +399,27 @@ h1 {
 
 /* Hourly Heat Strip Bar Chart */
 .heat-strip-container {
-  margin-top: 14px;
+  margin-top: 8px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
 
 .heat-strip-bars {
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
-  height: 28px;
+  height: 20px;
   background: rgba(0, 0, 0, 0.15);
-  border-radius: 6px;
-  padding: 4px 6px;
+  border-radius: 4px;
+  padding: 2px 4px;
   border: 1px solid rgba(255, 255, 255, 0.02);
 }
 
 .heat-bar {
   flex: 1;
   margin: 0 1px;
-  border-radius: 2px;
+  border-radius: 1px;
   background: rgba(255, 255, 255, 0.03);
   transition: height 0.5s ease, background 0.3s ease;
 }
@@ -432,7 +432,7 @@ h1 {
 .heat-strip-hours {
   display: flex;
   justify-content: space-between;
-  font-size: 0.58rem;
+  font-size: 0.54rem;
   color: var(--text-secondary);
   font-weight: 500;
   padding: 0 2px;
@@ -445,8 +445,8 @@ h1 {
   background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple));
   color: #080C14;
   border: none;
-  padding: 10px;
-  border-radius: 12px;
+  padding: 8px;
+  border-radius: 10px;
   font-weight: 700;
   font-family: var(--font-family);
   font-size: 0.85rem;

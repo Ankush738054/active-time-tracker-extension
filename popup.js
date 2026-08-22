@@ -215,23 +215,32 @@ document.addEventListener('DOMContentLoaded', () => {
     leaderboardList.innerHTML = html;
   }
 
-  // Renders a 24-Hour activity distribution heat strip
-  function renderHeatStrip(logs, session) {
+  // Renders a 24-Hour activity distribution heat strip (Capped at 3600s per hour to handle outliers)
+  function renderHeatStrip(logs, session, cloudHourlyStats) {
     const heatStripBars = document.getElementById('heat-strip-bars');
     if (!heatStripBars) return;
 
-    const now = new Date();
-    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-
-    const todayLogs = logs.filter(log => new Date(log.startTime).getTime() >= startOfToday);
     const hourlySeconds = Array(24).fill(0);
 
-    todayLogs.forEach(log => {
-      const hr = new Date(log.startTime).getHours();
-      if (hr >= 0 && hr < 24) {
-        hourlySeconds[hr] += log.duration;
-      }
-    });
+    if (cloudHourlyStats && Array.isArray(cloudHourlyStats)) {
+      cloudHourlyStats.forEach(item => {
+        const hr = parseInt(item._id, 10);
+        if (hr >= 0 && hr < 24) {
+          hourlySeconds[hr] = item.totalDuration;
+        }
+      });
+    } else {
+      const now = new Date();
+      const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+      const todayLogs = logs.filter(log => new Date(log.startTime).getTime() >= startOfToday);
+
+      todayLogs.forEach(log => {
+        const hr = new Date(log.startTime).getHours();
+        if (hr >= 0 && hr < 24) {
+          hourlySeconds[hr] += log.duration;
+        }
+      });
+    }
 
     if (session && session.domain && session.startTime) {
       const startHr = new Date(session.startTime).getHours();
@@ -241,7 +250,12 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
-    const maxHourSecs = Math.max(...hourlySeconds);
+    // Cap each hour to maximum of 3600 seconds to prevent tracking outliers from breaking vertical scale
+    for (let i = 0; i < 24; i++) {
+      hourlySeconds[i] = Math.min(3600, hourlySeconds[i]);
+    }
+
+    const maxHourSecs = Math.min(3600, Math.max(...hourlySeconds));
     let html = '';
     for (let i = 0; i < 24; i++) {
       const secs = hourlySeconds[i];
@@ -332,9 +346,6 @@ document.addEventListener('DOMContentLoaded', () => {
       const session = result.activeSession;
       const token = result.token;
 
-      // Render 24-Hour heat strip on every tick
-      renderHeatStrip(logs, session);
-
       if (token) {
         chrome.runtime.sendMessage({ action: 'fetch_stats', token }, (data) => {
           if (data && data.success && data.todaySummary) {
@@ -367,12 +378,15 @@ document.addEventListener('DOMContentLoaded', () => {
             todayTotalText.textContent = formatDurationTotal(totalSecondsToday);
             renderTopSitesList(cloudSites);
             renderTrackingState(activeDomain, activeSessionDuration, totalSecondsToday);
+            renderHeatStrip(logs, session, data.todayHourlyTimeline);
           } else {
             renderLocalStats(logs, session);
+            renderHeatStrip(logs, session, null);
           }
         });
       } else {
         renderLocalStats(logs, session);
+        renderHeatStrip(logs, session, null);
       }
     });
   }
