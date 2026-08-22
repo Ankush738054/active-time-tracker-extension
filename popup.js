@@ -34,6 +34,14 @@ document.addEventListener('DOMContentLoaded', () => {
   const STATS_URL = 'https://active-time-tracker-backend.onrender.com/api/activity/stats?range=today';
   let authMode = 'login';
 
+  // Live memory states for local ticking and rendering
+  let currentActiveDomain = null;
+  let currentActiveSessionDuration = 0;
+  let currentTotalSecondsToday = 0;
+  let currentLeaderboardSites = [];
+  let lastFetchTime = 0;
+  let lastRenderedLeaderboardJSON = '';
+
   // Toggle Auth Modes (Login / Register)
   authToggleLink.addEventListener('click', (e) => {
     e.preventDefault();
@@ -170,31 +178,21 @@ document.addEventListener('DOMContentLoaded', () => {
     return `${secs}s`;
   }
 
-  // Domain Categorization Classifier
-  function getCategoryTag(domain) {
-    const d = domain.toLowerCase();
-    if (d.includes('github') || d.includes('stackoverflow') || d.includes('leet') || d.includes('docs') || d.includes('gitlab') || d.includes('medium') || d.includes('npm')) {
-      return '<span class="category-pill focus">Focus</span>';
+  // Renders the top 3 websites leaderboard list (Only updates DOM if JSON content changes to prevent favicon blinking)
+  function renderLeaderboard(sortedSites) {
+    const top3 = (sortedSites || []).slice(0, 3);
+    const currentJSON = JSON.stringify(top3);
+    if (currentJSON === lastRenderedLeaderboardJSON) {
+      return; // Skip rendering if list is unchanged
     }
-    if (d.includes('gmail') || d.includes('google') || d.includes('meet') || d.includes('zoom') || d.includes('slack') || d.includes('teams') || d.includes('outlook') || d.includes('render')) {
-      return '<span class="category-pill work">Work</span>';
-    }
-    if (d.includes('youtube') || d.includes('netflix') || d.includes('facebook') || d.includes('instagram') || d.includes('twitter') || d.includes('reddit') || d.includes('spotify') || d.includes('tiktok') || d.includes('pinterest')) {
-      return '<span class="category-pill distraction">Distract</span>';
-    }
-    return '<span class="category-pill utility">Utility</span>';
-  }
+    lastRenderedLeaderboardJSON = currentJSON;
 
-  // Renders the top 3 websites leaderboard list
-  function renderTopSitesList(sortedSites) {
-    if (!sortedSites || sortedSites.length === 0) {
+    if (top3.length === 0) {
       leaderboardList.innerHTML = '<div class="leaderboard-item empty">No sites tracked today</div>';
       return;
     }
 
-    const top3 = sortedSites.slice(0, 3);
     let html = '';
-    
     top3.forEach((site, index) => {
       const faviconUrl = `https://www.google.com/s2/favicons?domain=${site.domain}&sz=32`;
       html += `
@@ -213,13 +211,66 @@ document.addEventListener('DOMContentLoaded', () => {
     leaderboardList.innerHTML = html;
   }
 
+  // Render tracking badges and dial state dynamically without full DOM rebuilds
+  function renderUI() {
+    // 1. Today's Total Time
+    if (todayTotalText) {
+      todayTotalText.textContent = formatDurationTotal(currentTotalSecondsToday);
+    }
 
+    // 2. Gauge Arc Fill
+    const gaugeFill = document.getElementById('gauge-fill');
+    if (gaugeFill) {
+      const targetHoursInSecs = 8 * 3600; // 8 Hours Goal
+      const fraction = Math.min(1, currentTotalSecondsToday / targetHoursInSecs);
+      const strokeDashoffset = 188.5 - (fraction * 188.5);
+      gaugeFill.setAttribute('stroke-dashoffset', strokeDashoffset);
+    }
 
-  // Local calculations helper (Fallback)
-  function renderLocalStats(logs, session) {
+    // 3. Live Session Details
+    const liveSessionFavicon = document.getElementById('live-session-favicon');
+    const liveSessionTimer = document.getElementById('live-session-timer');
+
+    if (currentActiveDomain) {
+      if (statusContainer && !statusContainer.classList.contains('live')) {
+        statusContainer.classList.add('live');
+        if (statusText) statusText.textContent = 'Live Tracking';
+      }
+      if (domainText && domainText.textContent !== currentActiveDomain) {
+        domainText.textContent = currentActiveDomain;
+      }
+      if (liveSessionFavicon) {
+        const targetSrc = `https://www.google.com/s2/favicons?domain=${currentActiveDomain}&sz=32`;
+        if (liveSessionFavicon.getAttribute('data-domain') !== currentActiveDomain) {
+          liveSessionFavicon.src = targetSrc;
+          liveSessionFavicon.setAttribute('data-domain', currentActiveDomain);
+        }
+      }
+      if (liveSessionTimer) {
+        liveSessionTimer.textContent = formatDurationLive(currentActiveSessionDuration);
+      }
+    } else {
+      if (statusContainer && statusContainer.classList.contains('live')) {
+        statusContainer.classList.remove('live');
+        if (statusText) statusText.textContent = 'Idle';
+      }
+      if (domainText && domainText.textContent !== 'None') {
+        domainText.textContent = 'None';
+      }
+      if (liveSessionFavicon && liveSessionFavicon.getAttribute('data-domain') !== 'none') {
+        liveSessionFavicon.src = `https://www.google.com/s2/favicons?domain=google.com&sz=32`;
+        liveSessionFavicon.setAttribute('data-domain', 'none');
+      }
+      if (liveSessionTimer && liveSessionTimer.textContent !== '0s') {
+        liveSessionTimer.textContent = '0s';
+      }
+    }
+  }
+
+  // Load offline fallback stats from local storage logs
+  function loadLocalFallback(logs) {
     const now = new Date();
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-
     const todayLogs = logs.filter(log => new Date(log.startTime).getTime() >= startOfToday);
 
     const domainDurations = {};
@@ -230,112 +281,96 @@ document.addEventListener('DOMContentLoaded', () => {
       totalSecondsToday += log.duration;
     });
 
-    let activeSessionDuration = 0;
-    let activeDomain = null;
-
-    if (session && session.domain && session.startTime) {
-      activeDomain = session.domain;
-      activeSessionDuration = Math.floor((Date.now() - session.startTime) / 1000);
-
-      domainDurations[activeDomain] = (domainDurations[activeDomain] || 0) + activeSessionDuration;
-      totalSecondsToday += activeSessionDuration;
+    if (currentActiveDomain) {
+      domainDurations[currentActiveDomain] = (domainDurations[currentActiveDomain] || 0) + currentActiveSessionDuration;
+      totalSecondsToday += currentActiveSessionDuration;
     }
 
-    const sortedSites = Object.entries(domainDurations).map(([domain, duration]) => ({
+    currentTotalSecondsToday = totalSecondsToday;
+    currentLeaderboardSites = Object.entries(domainDurations).map(([domain, duration]) => ({
       domain,
       duration
     })).sort((a, b) => b.duration - a.duration);
-
-    todayTotalText.textContent = formatDurationTotal(totalSecondsToday);
-    renderTopSitesList(sortedSites);
-    renderTrackingState(activeDomain, activeSessionDuration, totalSecondsToday);
   }
 
-  // Render tracking badges dynamically
-  function renderTrackingState(activeDomain, activeSessionDuration, totalSecondsToday) {
-    const statusContainer = document.getElementById('status-container');
-    const statusText = document.getElementById('status-text');
-    const domainText = document.getElementById('current-domain');
-    const liveSessionFavicon = document.getElementById('live-session-favicon');
-    const liveSessionTimer = document.getElementById('live-session-timer');
-    const gaugeFill = document.getElementById('gauge-fill');
-
-    if (gaugeFill) {
-      const targetHoursInSecs = 8 * 3600; // 8 Hours Daily Goal
-      const fraction = Math.min(1, totalSecondsToday / targetHoursInSecs);
-      const strokeDashoffset = 188.5 - (fraction * 188.5);
-      gaugeFill.setAttribute('stroke-dashoffset', strokeDashoffset);
-    }
-
-    if (activeDomain) {
-      if (statusContainer) statusContainer.classList.add('live');
-      if (statusText) statusText.textContent = 'Live Tracking';
-      if (domainText) domainText.textContent = activeDomain;
-      if (liveSessionTimer) liveSessionTimer.innerHTML = `<span class="time">${formatDurationLive(activeSessionDuration)}</span>`;
-      if (liveSessionFavicon) {
-        liveSessionFavicon.src = `https://www.google.com/s2/favicons?domain=${activeDomain}&sz=32`;
-      }
-    } else {
-      if (statusContainer) statusContainer.classList.remove('live');
-      if (statusText) statusText.textContent = 'Idle';
-      if (domainText) domainText.textContent = 'None';
-      if (liveSessionTimer) liveSessionTimer.innerHTML = `<span class="time">0s</span>`;
-      if (liveSessionFavicon) {
-        liveSessionFavicon.src = `https://www.google.com/s2/favicons?domain=google.com&sz=32`;
-      }
-    }
-  }
-
-  // Primary routine to fetch logs and update the popup interface
-  function updatePopup() {
+  // Async task to fetch cloud statistics from the Render database
+  function fetchCloudStats() {
     chrome.storage.local.get(['activityLogs', 'activeSession', 'token'], (result) => {
       const logs = result.activityLogs || [];
       const session = result.activeSession;
       const token = result.token;
 
-      // Render local stats immediately to ensure zero UI delay on click
-      renderLocalStats(logs, session);
+      lastFetchTime = Date.now();
+
+      // Read active tracking state
+      if (session && session.domain && session.startTime) {
+        currentActiveDomain = session.domain;
+        currentActiveSessionDuration = Math.floor((Date.now() - session.startTime) / 1000);
+      } else {
+        currentActiveDomain = null;
+        currentActiveSessionDuration = 0;
+      }
 
       if (token) {
         chrome.runtime.sendMessage({ action: 'fetch_stats', token }, (data) => {
           if (data && data.success && data.todaySummary) {
-            let totalSecondsToday = data.todaySummary.totalDuration;
-
-            let activeSessionDuration = 0;
-            let activeDomain = null;
-
-            if (session && session.domain && session.startTime) {
-              activeDomain = session.domain;
-              activeSessionDuration = Math.floor((Date.now() - session.startTime) / 1000);
-              totalSecondsToday += activeSessionDuration;
-            }
+            currentTotalSecondsToday = data.todaySummary.totalDuration + currentActiveSessionDuration;
 
             let cloudSites = (data.todayRankings || []).map(item => ({
               domain: item._id,
               duration: item.totalDuration
             }));
 
-            if (activeDomain && activeSessionDuration > 0) {
-              const existingIndex = cloudSites.findIndex(item => item.domain === activeDomain);
+            if (currentActiveDomain && currentActiveSessionDuration > 0) {
+              const existingIndex = cloudSites.findIndex(item => item.domain === currentActiveDomain);
               if (existingIndex !== -1) {
-                cloudSites[existingIndex].duration += activeSessionDuration;
+                cloudSites[existingIndex].duration += currentActiveSessionDuration;
               } else {
-                cloudSites.push({ domain: activeDomain, duration: activeSessionDuration });
+                cloudSites.push({ domain: currentActiveDomain, duration: currentActiveSessionDuration });
               }
               cloudSites.sort((a, b) => b.duration - a.duration);
             }
-
-            todayTotalText.textContent = formatDurationTotal(totalSecondsToday);
-            renderTopSitesList(cloudSites);
-            renderTrackingState(activeDomain, activeSessionDuration, totalSecondsToday);
+            currentLeaderboardSites = cloudSites;
+          } else {
+            loadLocalFallback(logs);
           }
+          renderUI();
+          renderLeaderboard(currentLeaderboardSites);
         });
+      } else {
+        loadLocalFallback(logs);
+        renderUI();
+        renderLeaderboard(currentLeaderboardSites);
       }
     });
   }
 
-  // Load active sessions on open
+  // 1-Second tick logic to increment active counters in memory and redraw UI values without flickering
+  function tick() {
+    if (currentActiveDomain) {
+      currentActiveSessionDuration++;
+      currentTotalSecondsToday++;
+
+      const index = currentLeaderboardSites.findIndex(item => item.domain === currentActiveDomain);
+      if (index !== -1) {
+        currentLeaderboardSites[index].duration++;
+        currentLeaderboardSites.sort((a, b) => b.duration - a.duration);
+      } else {
+        currentLeaderboardSites.push({ domain: currentActiveDomain, duration: 1 });
+      }
+    }
+
+    renderUI();
+    renderLeaderboard(currentLeaderboardSites);
+
+    // Fetch fresh stats from server every 10 seconds
+    if (Date.now() - lastFetchTime >= 10000) {
+      fetchCloudStats();
+    }
+  }
+
+  // Startup hooks
   updateAuthUI();
-  updatePopup();
-  setInterval(updatePopup, 1000);
+  fetchCloudStats();
+  setInterval(tick, 1000);
 });
