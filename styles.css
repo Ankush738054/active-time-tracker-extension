@@ -15,7 +15,7 @@
 body {
   margin: 0;
   padding: 0;
-  width: 350px;
+  width: 385px;
   background-color: var(--bg-primary);
   font-family: var(--font-family);
   color: var(--text-primary);
@@ -26,11 +26,11 @@ body {
 
 /* Glassmorphism Outer Wrapper */
 .container {
-  padding: 12px;
+  padding: 18px;
   background: radial-gradient(circle at top left, rgba(0, 242, 254, 0.07), transparent 60%),
               radial-gradient(circle at bottom right, rgba(121, 40, 202, 0.07), transparent 60%),
               var(--bg-primary);
-  min-height: 480px;
+  min-height: 550px;
   display: flex;
   flex-direction: column;
 }
@@ -41,9 +41,9 @@ body {
   border: 1px solid var(--border-glass);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border-radius: 16px;
-  padding: 12px;
-  box-shadow: 0 10px 30px 0 rgba(0, 0, 0, 0.5);
+  border-radius: 18px;
+  padding: 16px;
+  box-shadow: 0 12px 35px 0 rgba(0, 0, 0, 0.5);
   transition: border-color 0.4s ease, box-shadow 0.4s ease;
   position: relative;
   overflow: hidden;
@@ -62,7 +62,7 @@ body {
 
 .card:hover {
   border-color: var(--border-glow);
-  box-shadow: 0 10px 30px 0 rgba(0, 242, 254, 0.12);
+  box-shadow: 0 12px 35px 0 rgba(0, 242, 254, 0.12);
 }
 
 /* Header layout */
@@ -70,7 +70,7 @@ header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 12px;
+  margin-bottom: 16px;
 }
 
 h1 {
@@ -409,10 +409,10 @@ h1 {
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
-  height: 20px;
+  height: 28px;
   background: rgba(0, 0, 0, 0.15);
-  border-radius: 4px;
-  padding: 2px 4px;
+  border-radius: 6px;
+  padding: 4px 6px;
   border: 1px solid rgba(255, 255, 255, 0.02);
 }
 

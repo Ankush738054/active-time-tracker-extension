@@ -196,7 +196,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let html = '';
     
     top3.forEach((site, index) => {
-      const categoryTag = getCategoryTag(site.domain);
       const faviconUrl = `https://www.google.com/s2/favicons?domain=${site.domain}&sz=32`;
       html += `
         <div class="leaderboard-item">
@@ -206,7 +205,6 @@ document.addEventListener('DOMContentLoaded', () => {
             <span class="domain-name" title="${site.domain}">${site.domain}</span>
           </div>
           <div class="right-content">
-            ${categoryTag}
             <span class="time-spent">${formatDurationTotal(site.duration)}</span>
           </div>
         </div>
@@ -263,7 +261,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const isActiveClass = secs > 0 ? 'active' : '';
       const displayMins = Math.round(secs / 60);
       const titleAttr = `title="${i}h: ${displayMins}m tracked"`;
-      html += `<div class="heat-bar ${isActiveClass}" ${titleAttr} style="height: ${Math.max(2, pct * 0.85)}px;"></div>`;
+      html += `<div class="heat-bar ${isActiveClass}" ${titleAttr} style="height: ${Math.max(2, (pct / 100) * 24)}px;"></div>`;
     }
     heatStripBars.innerHTML = html;
   }
