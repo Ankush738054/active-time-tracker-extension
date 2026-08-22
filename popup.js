@@ -248,8 +248,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (token) {
         chrome.runtime.sendMessage({ action: 'fetch_stats', token }, (data) => {
-          if (data && data.success && data.summary) {
-            let totalSecondsToday = data.summary.totalDuration;
+          if (data && data.success && data.todaySummary) {
+            let totalSecondsToday = data.todaySummary.totalDuration;
 
             let activeSessionDuration = 0;
             let activeDomain = null;
@@ -262,8 +262,8 @@ document.addEventListener('DOMContentLoaded', () => {
               totalSecondsToday += activeSessionDuration;
             }
 
-            // Map data.rankings (format {_id, totalDuration}) to client layout format ({domain, duration})
-            let cloudSites = (data.rankings || []).map(item => ({
+            // Map data.todayRankings (format {_id, totalDuration}) to client layout format ({domain, duration})
+            let cloudSites = (data.todayRankings || []).map(item => ({
               domain: item._id,
               duration: item.totalDuration
             }));
