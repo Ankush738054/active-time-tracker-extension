@@ -2,6 +2,7 @@
   "manifest_version": 3,
   "name": "Active Time Tracker",
   "version": "2.0.0",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAqqmB56MCg16/rwdO/3wWzWmLh9qOw0HImz0WvgHN6VWD/k7Dl6/nfVptBRWYYTJVSYruxC0H/CnWCgh2eJXuotNKMwjabO1SU/313rcCfFO2qtPVfYb8AQv8Ld2S9wG1jgvKimR4nBj/cHx3lvPnji08dCqZEcbgsw7SlCPmipv2rwZeoPjQ076LKEqSv3Y1D4UanWsaxm8PSPP1+oY4mQWZZpBZQubY7l8iq5J5N17TEPfsBQPd1xmPZC463eCzxaHHb+KE3FnI2/ddRsaxIXUq44OY+haXijNygmrwnH1VbY4p0mLCCEL0bcqialhU4ctCHpAe7axTPoA35pv3PQIDAQAB",
   "description": "Tracks active website time across Chrome and Brave, synced under a single user account.",
   "permissions": [
     "storage",
