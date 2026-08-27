@@ -33,7 +33,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const authOtp = document.getElementById('auth-otp');
   const authResendLink = document.getElementById('auth-resend-link');
 
-  const DEV_MODE = true; // Toggle to true for local testing, false for production Render server
+  const DEV_MODE = false; // Toggle to true for local testing, false for production Render server
   const BASE_URL = DEV_MODE ? 'http://localhost:5000/api' : 'https://active-time-tracker-backend.onrender.com/api';
   const API_URL = `${BASE_URL}/auth`;
   const STATS_URL = `${BASE_URL}/activity/stats?range=today`;
