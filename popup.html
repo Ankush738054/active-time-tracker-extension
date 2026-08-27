@@ -12,65 +12,116 @@
 <body>
   <div class="container">
     <div class="card">
+      <!-- Subtle Update Alert Banner -->
+      <div id="popup-update-banner" class="popup-update-banner hidden">
+        <span class="update-text">Update Available (v<span id="popup-latest-ver"></span>) ⚡</span>
+        <a id="popup-update-link" href="#" target="_blank" class="btn-update-action">Update ↗</a>
+      </div>
+
       <header>
-        <div class="header-title">
-          <!-- Logo SVG -->
-          <svg class="logo-svg" viewBox="0 0 24 24">
-            <circle cx="12" cy="12" r="10" stroke="url(#header-logo-grad)" stroke-width="2.5" fill="none"/>
-            <path d="M12 6v6l4 2" stroke="url(#header-logo-grad)" stroke-width="2.5" stroke-linecap="round" fill="none"/>
-            <defs>
-              <linearGradient id="header-logo-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stop-color="#00F2FE" />
-                <stop offset="100%" stop-color="#7928CA" />
-              </linearGradient>
-            </defs>
-          </svg>
-          <h1>ActiveTime</h1>
-          <a href="#" id="dashboard-link" class="dashboard-link" title="Open Web Dashboard">📊</a>
+        <div class="header-title-group">
+          <div class="header-title">
+            <!-- Logo SVG -->
+            <svg class="logo-svg" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="10" stroke="url(#header-logo-grad)" stroke-width="2.5" fill="none"/>
+              <path d="M12 6v6l4 2" stroke="url(#header-logo-grad)" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+              <defs>
+                <linearGradient id="header-logo-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="#00F2FE" />
+                  <stop offset="100%" stop-color="#7928CA" />
+                </linearGradient>
+              </defs>
+            </svg>
+            <h1>ActiveTime</h1>
+          </div>
+          <a href="#" id="dashboard-btn" class="header-dashboard-link">Open Dashboard ↗</a>
         </div>
         <div class="status-badge" id="status-container">
           <span class="status-dot"></span>
-          <span id="status-text">Idle</span>
+          <span id="status-text">Paused</span>
         </div>
       </header>
 
-      <!-- Live Session Timer Card -->
-      <div class="live-session-card">
-        <div class="live-session-icon">
-          <img id="live-session-favicon" src="https://www.google.com/s2/favicons?domain=google.com&sz=32" alt="Favicon">
+      <!-- Tab Buttons Navigation -->
+      <div class="tabs-nav">
+        <button type="button" class="tab-btn active" id="tab-btn-analytics">Analytics</button>
+        <button type="button" class="tab-btn" id="tab-btn-tasks">Tasks</button>
+      </div>
+
+      <!-- Tab Content 1: Analytics -->
+      <div id="view-analytics" class="tab-content active">
+        <!-- Live Session Timer Card -->
+        <div class="live-session-card">
+          <div class="live-session-icon">
+            <img id="live-session-favicon" src="https://www.google.com/s2/favicons?domain=google.com&sz=32" alt="Favicon">
+          </div>
+          <div class="live-session-info">
+            <span class="live-session-label">Live Session Timer</span>
+            <div class="live-session-text" id="live-session-text">
+              <span class="time" id="live-session-timer">0s</span> on <span id="current-domain">None</span>
+            </div>
+          </div>
         </div>
-        <div class="live-session-info">
-          <span class="live-session-label">Live Session Timer</span>
-          <div class="live-session-text" id="live-session-text">
-            <span class="time" id="live-session-timer">0s</span> on <span id="current-domain">None</span>
+
+        <!-- Hero Speedometer / Radial Gauge -->
+        <div class="radial-gauge-container">
+          <!-- Subtle background clock watermark -->
+          <svg class="clock-watermark" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5" fill="none" />
+            <path d="M12 6v6l4 2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" fill="none" />
+          </svg>
+          <svg class="radial-gauge" viewBox="0 0 100 100">
+            <path class="gauge-bg" d="M 20 80 A 40 40 0 1 1 80 80" fill="none" stroke-width="6" stroke-linecap="round"/>
+            <path class="gauge-fill" id="gauge-fill" d="M 20 80 A 40 40 0 1 1 80 80" fill="none" stroke="url(#gauge-grad)" stroke-width="6" stroke-linecap="round" stroke-dasharray="188.5" stroke-dashoffset="188.5"/>
+          </svg>
+          <div class="gauge-content">
+            <span class="gauge-label">Today's Total Time</span>
+            <h2 class="gauge-value" id="today-total">0m</h2>
+          </div>
+        </div>
+
+        <!-- Top Websites Leaderboard Box -->
+        <div class="section-box">
+          <div class="section-label">Top Websites Today</div>
+          <div class="leaderboard-list" id="leaderboard-list">
+            <div class="leaderboard-item empty">No sites tracked today</div>
           </div>
         </div>
       </div>
 
-      <!-- Hero Speedometer / Radial Gauge -->
-      <div class="radial-gauge-container">
-        <svg class="radial-gauge" viewBox="0 0 100 100">
-          <path class="gauge-bg" d="M 20 80 A 40 40 0 1 1 80 80" fill="none" stroke-width="6" stroke-linecap="round"/>
-          <path class="gauge-fill" id="gauge-fill" d="M 20 80 A 40 40 0 1 1 80 80" fill="none" stroke="url(#gauge-grad)" stroke-width="6" stroke-linecap="round" stroke-dasharray="188.5" stroke-dashoffset="188.5"/>
-        </svg>
-        <div class="gauge-content">
-          <span class="gauge-label">Today's Total Time</span>
-          <h2 class="gauge-value" id="today-total">0m</h2>
+      <!-- Tab Content 2: Tasks/Todo List -->
+      <div id="view-tasks" class="tab-content">
+        <!-- Tasks progress display -->
+        <div class="tasks-progress-card">
+          <div class="progress-details">
+            <span class="progress-title">Today's Goals</span>
+            <span class="progress-text" id="tasks-progress-text">0/0 completed</span>
+          </div>
+          <div class="progress-bar-container">
+            <div class="progress-bar-fill" id="tasks-progress-bar" style="width: 0%"></div>
+          </div>
         </div>
-      </div>
 
-      <!-- Top Websites Leaderboard Box -->
-      <div class="section-box">
-        <div class="section-label">Top Websites Today</div>
-        <div class="leaderboard-list" id="leaderboard-list">
-          <div class="leaderboard-item empty">No sites tracked today</div>
+        <!-- Task Input form -->
+        <form id="task-add-form" class="task-add-form">
+          <input type="text" id="task-new-input" placeholder="Create a new task..." required maxlength="60">
+          <button type="submit" class="btn-add-task">+</button>
+        </form>
+
+        <!-- Tasks list -->
+        <div class="tasks-list-container">
+          <ul id="tasks-list" class="tasks-list">
+            <li class="task-empty-state">No tasks created for today</li>
+          </ul>
         </div>
       </div>
 
     </div>
 
-    <!-- Sync / Account Controls -->
-    <button class="btn btn-cloud" id="cloud-toggle-btn">Sync to Cloud</button>
+    <!-- Action Buttons -->
+    <div class="action-buttons-group">
+      <button class="btn btn-cloud" id="cloud-toggle-btn">Sync to Cloud</button>
+    </div>
 
     <div class="profile-container" id="profile-container" style="display: none;">
       <div class="profile-info">

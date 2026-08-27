@@ -1,9 +1,11 @@
 // background.js - Time Tracker Background Engine
 
+const DEV_MODE = true; // Toggle to true for local testing, false for production Render server
+const BASE_URL = DEV_MODE ? 'http://localhost:5000/api' : 'https://active-time-tracker-backend.onrender.com/api';
+
 let isBrowserFocused = false;
 let currentActiveTabId = null;
 let isAudiblePlayback = false;
-let isSystemIdle = false;
 let isPopupOpen = false;
 
 // Tracking Engine state
@@ -13,8 +15,6 @@ let currentReason = "";
 
 // Heartbeat tracking
 let heartbeatIntervalId = null;
-
-const IDLE_DETECTION_INTERVAL = 60; // 60 seconds (1 minute) for production balance
 
 function normalizeDomain(url) {
   if (!url) return null;
@@ -141,14 +141,6 @@ function commitActivitySegment(transitionReason) {
 
   const now = Date.now();
   let durationMs = now - trackingStartTime;
-
-  // Retroactive idle time adjustment:
-  // We subtract the 60 seconds check delay to keep logs precise.
-  if (transitionReason === 'System Idle') {
-    const idleThresholdMs = IDLE_DETECTION_INTERVAL * 1000;
-    durationMs = Math.max(0, durationMs - idleThresholdMs);
-  }
-
   const durationSeconds = Math.round(durationMs / 1000);
 
   if (durationSeconds > 0) {
@@ -194,18 +186,6 @@ async function updateTrackingState() {
     // Check for any tab currently playing audio/video
     const audibleTabs = await chrome.tabs.query({ audible: true });
     const hasAudible = audibleTabs && audibleTabs.length > 0;
-
-    // 1. Check if user is idle (but allow active audio playback to bypass idle pause)
-    if (isSystemIdle) {
-      if (hasAudible) {
-        const audibleTab = audibleTabs[0];
-        const domain = normalizeDomain(audibleTab.url);
-        setTrackingTarget(audibleTab.id, domain, true, `Audible playback during system idle`);
-        return;
-      }
-      setTrackingTarget(null, null, false, `System Idle`);
-      return;
-    }
 
     // If the popup is open, we bypass the focus check and keep tracking the last active domain
     if (isPopupOpen && currentTrackingDomain) {
@@ -316,15 +296,6 @@ chrome.windows.onFocusChanged.addListener((windowId) => {
   }
 });
 
-// Idle API Configuration & Event Listeners
-chrome.idle.setDetectionInterval(IDLE_DETECTION_INTERVAL);
-
-chrome.idle.onStateChanged.addListener((state) => {
-  console.log(`Idle state changed to: ${state}`);
-  isSystemIdle = (state === 'idle' || state === 'locked');
-  updateTrackingState();
-});
-
 // Initialize on service worker startup
 chrome.windows.getLastFocused({ populate: false }, (win) => {
   if (win && win.focused && win.state !== 'minimized' && win.type === 'normal') {
@@ -334,11 +305,8 @@ chrome.windows.getLastFocused({ populate: false }, (win) => {
   }
 
   initializeSessionState(() => {
-    chrome.idle.queryState(IDLE_DETECTION_INTERVAL, (state) => {
-      isSystemIdle = (state === 'idle' || state === 'locked');
-      updateTrackingState();
-      syncLogsWithCloud(); // Try syncing cached logs on extension load
-    });
+    updateTrackingState();
+    syncLogsWithCloud(); // Try syncing cached logs on extension load
   });
 });
 
@@ -372,7 +340,7 @@ async function syncLogsWithCloud() {
     isSyncing = true;
     console.log(`[SYNC] Attempting to sync ${logs.length} cached logs with the cloud database...`);
 
-    fetch('https://active-time-tracker-backend.onrender.com/api/activity/ingest', {
+    fetch(`${BASE_URL}/activity/ingest`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -422,10 +390,18 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 
 // Privileged Background fetch router to bypass browser Extension popup CORS restrictions
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  const RENDER_BASE = 'https://active-time-tracker-backend.onrender.com/api';
+  if (request.action === 'check_version') {
+    fetch(`${BASE_URL}/system/version?cb=${Date.now()}`, {
+      method: 'GET'
+    })
+    .then(res => res.json())
+    .then(data => sendResponse({ success: true, data }))
+    .catch(err => sendResponse({ success: false, message: 'Server offline or unreachable.' }));
+    return true; // Keep message channel open for async response
+  }
 
   if (request.action === 'login') {
-    fetch(`${RENDER_BASE}/auth/login`, {
+    fetch(`${BASE_URL}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(request.payload)
@@ -437,7 +413,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
   
   if (request.action === 'register') {
-    fetch(`${RENDER_BASE}/auth/register`, {
+    fetch(`${BASE_URL}/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(request.payload)
@@ -449,7 +425,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 
   if (request.action === 'verify-otp') {
-    fetch(`${RENDER_BASE}/auth/verify-otp`, {
+    fetch(`${BASE_URL}/auth/verify-otp`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(request.payload)
@@ -461,7 +437,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 
   if (request.action === 'fetch_stats') {
-    fetch(`${RENDER_BASE}/activity/stats?range=today`, {
+    fetch(`${BASE_URL}/activity/stats?range=today`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${request.token}`
@@ -470,6 +446,78 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     .then(res => res.json())
     .then(data => sendResponse(data))
     .catch(err => sendResponse({ success: false, message: 'Server offline. Cannot connect.' }));
+    return true;
+  }
+
+  if (request.action === 'fetch_tasks') {
+    fetch(`${BASE_URL}/tasks`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${request.token}`
+      }
+    })
+    .then(res => res.json())
+    .then(data => sendResponse(data))
+    .catch(err => sendResponse({ success: false, message: 'Server offline. Cannot connect.' }));
+    return true;
+  }
+
+  if (request.action === 'create_task') {
+    fetch(`${BASE_URL}/tasks`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${request.token}`
+      },
+      body: JSON.stringify(request.payload)
+    })
+    .then(res => res.json())
+    .then(data => sendResponse(data))
+    .catch(err => sendResponse({ success: false, message: 'Server offline. Cannot connect.' }));
+    return true;
+  }
+
+  if (request.action === 'update_task') {
+    fetch(`${BASE_URL}/tasks/${request.taskId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${request.token}`
+      },
+      body: JSON.stringify(request.payload)
+    })
+    .then(res => res.json())
+    .then(data => sendResponse(data))
+    .catch(err => sendResponse({ success: false, message: 'Server offline. Cannot connect.' }));
+    return true;
+  }
+
+  if (request.action === 'delete_task') {
+    fetch(`${BASE_URL}/tasks/${request.taskId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${request.token}`
+      }
+    })
+    .then(res => res.json())
+    .then(data => sendResponse(data))
+    .catch(err => sendResponse({ success: false, message: 'Server offline. Cannot connect.' }));
+    return true;
+  }
+
+  if (request.action === 'sync_auth') {
+    chrome.storage.local.set({ token: request.token, user: request.user }, () => {
+      console.log('[BG SYNC] Auth credentials synchronized from web dashboard.');
+    });
+    sendResponse({ success: true });
+    return true;
+  }
+
+  if (request.action === 'clear_auth') {
+    chrome.storage.local.remove(['token', 'user'], () => {
+      console.log('[BG SYNC] Auth credentials cleared.');
+    });
+    sendResponse({ success: true });
     return true;
   }
 });

@@ -28,13 +28,15 @@ document.addEventListener('DOMContentLoaded', () => {
   const profileContainer = document.getElementById('profile-container');
   const profileUsername = document.getElementById('profile-username');
   const logoutBtn = document.getElementById('logout-btn');
-  const dashboardLink = document.getElementById('dashboard-link');
+  const dashboardBtn = document.getElementById('dashboard-btn');
   const otpGroup = document.getElementById('otp-group');
   const authOtp = document.getElementById('auth-otp');
   const authResendLink = document.getElementById('auth-resend-link');
 
-  const API_URL = 'https://active-time-tracker-backend.onrender.com/api/auth';
-  const STATS_URL = 'https://active-time-tracker-backend.onrender.com/api/activity/stats?range=today';
+  const DEV_MODE = true; // Toggle to true for local testing, false for production Render server
+  const BASE_URL = DEV_MODE ? 'http://localhost:5000/api' : 'https://active-time-tracker-backend.onrender.com/api';
+  const API_URL = `${BASE_URL}/auth`;
+  const STATS_URL = `${BASE_URL}/activity/stats?range=today`;
   let authMode = 'login';
 
   // Live memory states for local ticking and rendering
@@ -64,9 +66,7 @@ document.addEventListener('DOMContentLoaded', () => {
     authToggleMsg.textContent = "Don't have an account?";
     authToggleLink.textContent = 'Register';
 
-    // Reset popup height to fit regular content
-    document.body.style.height = 'auto';
-    document.documentElement.style.height = 'auto';
+
   }
 
   // Toggle Auth Modes (Login / Register)
@@ -74,9 +74,7 @@ document.addEventListener('DOMContentLoaded', () => {
     e.preventDefault();
     resetAuthForm();
 
-    // Set height to expand for auth panel inputs
-    document.body.style.height = '540px';
-    document.documentElement.style.height = '540px';
+
 
     if (authMode === 'login') {
       authMode = 'register';
@@ -99,8 +97,7 @@ document.addEventListener('DOMContentLoaded', () => {
   cloudToggleBtn.addEventListener('click', () => {
     resetAuthForm();
     authPanel.classList.add('open');
-    document.body.style.height = '540px';
-    document.documentElement.style.height = '540px';
+
   });
 
   authCloseBtn.addEventListener('click', () => {
@@ -141,10 +138,13 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // Open Full Web Dashboard in New Browser Tab
-  dashboardLink.addEventListener('click', (e) => {
-    e.preventDefault();
-    chrome.tabs.create({ url: 'https://active-time-tracker-backend.onrender.com' });
-  });
+  if (dashboardBtn) {
+    dashboardBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      const dashboardUrl = DEV_MODE ? 'http://localhost:5000' : 'https://active-time-tracker-backend.onrender.com';
+      chrome.tabs.create({ url: dashboardUrl });
+    });
+  }
 
   // Toggle Password Visibility Eye Button
   const togglePasswordBtn = document.getElementById('toggle-password-btn');
@@ -512,8 +512,501 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  // Tab Switching Logic
+  const tabBtnAnalytics = document.getElementById('tab-btn-analytics');
+  const tabBtnTasks = document.getElementById('tab-btn-tasks');
+  const viewAnalytics = document.getElementById('view-analytics');
+  const viewTasks = document.getElementById('view-tasks');
+
+  if (tabBtnAnalytics && tabBtnTasks && viewAnalytics && viewTasks) {
+    tabBtnAnalytics.addEventListener('click', () => {
+      tabBtnAnalytics.classList.add('active');
+      tabBtnTasks.classList.remove('active');
+      viewAnalytics.classList.add('active');
+      viewTasks.classList.remove('active');
+    });
+
+    tabBtnTasks.addEventListener('click', () => {
+      tabBtnTasks.classList.add('active');
+      tabBtnAnalytics.classList.remove('active');
+      viewTasks.classList.add('active');
+      viewAnalytics.classList.remove('active');
+      fetchTasks(); // Load tasks when switching to task tab
+    });
+  }
+
+  // Task Element Bindings
+  const taskAddForm = document.getElementById('task-add-form');
+  const taskNewInput = document.getElementById('task-new-input');
+  const tasksList = document.getElementById('tasks-list');
+  const tasksProgressText = document.getElementById('tasks-progress-text');
+  const tasksProgressBar = document.getElementById('tasks-progress-bar');
+
+  let tasksData = [];
+
+  // Fetch all tasks
+  function fetchTasks() {
+    console.log('[TASKS] Fetching tasks...');
+    chrome.storage.local.get(['token', 'local_tasks', 'task_order_today'], (result) => {
+      const token = result.token;
+      const localTasks = result.local_tasks || [];
+      const taskOrder = result.task_order_today || [];
+      console.log('[TASKS] Logged in:', token ? 'Yes' : 'No', '| Local tasks cached:', localTasks.length, '| Order size:', taskOrder.length);
+
+      if (token) {
+        chrome.runtime.sendMessage({ action: 'fetch_tasks', token }, (response) => {
+          if (chrome.runtime.lastError) {
+            console.error('[TASKS] fetch_tasks sendMessage error:', chrome.runtime.lastError.message);
+            // Fallback to local tasks
+            tasksData = localTasks;
+            // Sort local tasks
+            if (taskOrder.length > 0) {
+              tasksData.sort((a, b) => {
+                const idA = a._id || a.tempId;
+                const idB = b._id || b.tempId;
+                const idxA = taskOrder.indexOf(idA);
+                const idxB = taskOrder.indexOf(idB);
+                if (idxA === -1 && idxB === -1) return 0;
+                if (idxA === -1) return 1;
+                if (idxB === -1) return -1;
+                return idxA - idxB;
+              });
+            }
+            renderTasks();
+            return;
+          }
+
+          console.log('[TASKS] fetch_tasks response received:', response);
+          if (response && response.success && response.data) {
+            tasksData = response.data;
+            // Filter for today's tasks in local time
+            const todayStr = new Date().toLocaleDateString('en-CA');
+            tasksData = tasksData.filter(t => t.dateString === todayStr);
+
+            // Sort tasks by priority order
+            if (taskOrder.length > 0) {
+              tasksData.sort((a, b) => {
+                const idA = a._id || a.tempId;
+                const idB = b._id || b.tempId;
+                const idxA = taskOrder.indexOf(idA);
+                const idxB = taskOrder.indexOf(idB);
+                if (idxA === -1 && idxB === -1) return 0;
+                if (idxA === -1) return 1;
+                if (idxB === -1) return -1;
+                return idxA - idxB;
+              });
+            }
+
+            console.log('[TASKS] Filtered today tasks count:', tasksData.length);
+            renderTasks();
+          } else {
+            console.warn('[TASKS] fetch_tasks failed on server, fallback to local');
+            tasksData = localTasks;
+            if (taskOrder.length > 0) {
+              tasksData.sort((a, b) => {
+                const idA = a._id || a.tempId;
+                const idB = b._id || b.tempId;
+                const idxA = taskOrder.indexOf(idA);
+                const idxB = taskOrder.indexOf(idB);
+                if (idxA === -1 && idxB === -1) return 0;
+                if (idxA === -1) return 1;
+                if (idxB === -1) return -1;
+                return idxA - idxB;
+              });
+            }
+            renderTasks();
+          }
+        });
+      } else {
+        // Not logged in: show local tasks sorted
+        tasksData = localTasks;
+        if (taskOrder.length > 0) {
+          tasksData.sort((a, b) => {
+            const idA = a._id || a.tempId;
+            const idB = b._id || b.tempId;
+            const idxA = taskOrder.indexOf(idA);
+            const idxB = taskOrder.indexOf(idB);
+            if (idxA === -1 && idxB === -1) return 0;
+            if (idxA === -1) return 1;
+            if (idxB === -1) return -1;
+            return idxA - idxB;
+          });
+        }
+        renderTasks();
+      }
+    });
+  }
+
+  // Render tasks in popup
+  function renderTasks() {
+    if (!tasksList) return;
+    console.log('[TASKS] Rendering list with item count:', tasksData.length);
+
+    if (tasksData.length === 0) {
+      tasksList.innerHTML = '<li class="task-empty-state">No tasks created for today</li>';
+      if (tasksProgressText) tasksProgressText.textContent = '0/0 completed';
+      if (tasksProgressBar) tasksProgressBar.style.width = '0%';
+      return;
+    }
+
+    const completedCount = tasksData.filter(t => t.completed).length;
+    const totalCount = tasksData.length;
+    const progressPct = Math.round((completedCount / totalCount) * 100);
+
+    if (tasksProgressText) {
+      tasksProgressText.textContent = `${completedCount}/${totalCount} completed`;
+    }
+    if (tasksProgressBar) {
+      tasksProgressBar.style.width = `${progressPct}%`;
+    }
+
+    let html = '';
+    tasksData.forEach(task => {
+      html += `
+        <li class="task-item ${task.completed ? 'completed' : ''}" data-id="${task._id || task.tempId}" draggable="true">
+          <label class="task-checkbox-container">
+            <input type="checkbox" class="task-checkbox" ${task.completed ? 'checked' : ''}>
+            <span class="task-text">${escapeHtml(task.text)}</span>
+          </label>
+          <div class="task-actions">
+            <button type="button" class="btn-edit-task" title="Edit Task">✏️</button>
+            <button type="button" class="btn-delete-task" title="Delete Task">&times;</button>
+          </div>
+        </li>
+      `;
+    });
+    tasksList.innerHTML = html;
+
+    // Attach list event listeners (complete & delete & drag/drop)
+    const items = tasksList.querySelectorAll('.task-item');
+    let dragSrcEl = null;
+
+    items.forEach(item => {
+      const id = item.getAttribute('data-id');
+      const checkbox = item.querySelector('.task-checkbox');
+      const deleteBtn = item.querySelector('.btn-delete-task');
+      const editBtn = item.querySelector('.btn-edit-task');
+
+      if (checkbox) {
+        checkbox.addEventListener('change', () => {
+          toggleTask(id, checkbox.checked);
+        });
+      }
+
+      if (deleteBtn) {
+        deleteBtn.addEventListener('click', () => {
+          deleteTask(id);
+        });
+      }
+
+      if (editBtn) {
+        editBtn.addEventListener('click', () => {
+          const isEditing = item.classList.toggle('editing-mode');
+          const taskObj = tasksData.find(t => (t._id === id || t.tempId === id));
+          if (!taskObj) return;
+
+          if (isEditing) {
+            const textSpan = item.querySelector('.task-text');
+            const currentText = taskObj.text;
+            textSpan.innerHTML = `<input type="text" class="task-edit-input" value="${escapeHtml(currentText)}" maxlength="60">`;
+            editBtn.textContent = '💾';
+            const input = textSpan.querySelector('.task-edit-input');
+            input.focus();
+            input.select();
+            
+            input.addEventListener('keydown', (ev) => {
+              if (ev.key === 'Enter') {
+                ev.preventDefault();
+                saveEdit(id, input.value.trim());
+              } else if (ev.key === 'Escape') {
+                renderTasks();
+              }
+            });
+          } else {
+            const input = item.querySelector('.task-edit-input');
+            if (input) {
+              saveEdit(id, input.value.trim());
+            }
+          }
+        });
+      }
+
+      // Drag events
+      item.addEventListener('dragstart', function(e) {
+        dragSrcEl = this;
+        this.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', id);
+      });
+
+      item.addEventListener('dragover', function(e) {
+        if (e.preventDefault) {
+          e.preventDefault();
+        }
+        e.dataTransfer.dropEffect = 'move';
+        return false;
+      });
+
+      item.addEventListener('dragenter', function(e) {
+        if (dragSrcEl !== this) {
+          this.classList.add('drag-over');
+        }
+      });
+
+      item.addEventListener('dragleave', function(e) {
+        this.classList.remove('drag-over');
+      });
+
+      item.addEventListener('drop', function(e) {
+        e.stopPropagation();
+        e.preventDefault();
+        this.classList.remove('drag-over');
+
+        if (dragSrcEl !== this) {
+          const draggedId = e.dataTransfer.getData('text/plain');
+          const targetId = this.getAttribute('data-id');
+
+          const draggedIndex = tasksData.findIndex(t => (t._id === draggedId || t.tempId === draggedId));
+          const targetIndex = tasksData.findIndex(t => (t._id === targetId || t.tempId === targetId));
+
+          if (draggedIndex !== -1 && targetIndex !== -1) {
+            // Swap items in memory array
+            const [draggedItem] = tasksData.splice(draggedIndex, 1);
+            tasksData.splice(targetIndex, 0, draggedItem);
+            
+            // Save custom priority order to storage
+            const orderedIds = tasksData.map(t => t._id || t.tempId);
+            chrome.storage.local.set({ task_order_today: orderedIds }, () => {
+              renderTasks();
+            });
+          }
+        }
+        return false;
+      });
+
+      item.addEventListener('dragend', function(e) {
+        this.classList.remove('dragging');
+        items.forEach(it => it.classList.remove('drag-over'));
+      });
+    });
+  }
+
+  // Helper to escape HTML tags
+  function escapeHtml(text) {
+    const map = {
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#039;'
+    };
+    return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+  }
+
+  // Add Task
+  if (taskAddForm && taskNewInput) {
+    console.log('[TASKS] Bound task add form submit listener');
+    taskAddForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const text = taskNewInput.value.trim();
+      console.log('[TASKS] Adding new task:', text);
+      if (!text) return;
+
+      taskNewInput.value = '';
+
+      chrome.storage.local.get(['token', 'local_tasks'], (result) => {
+        const token = result.token;
+        const localTasks = result.local_tasks || [];
+        const todayStr = new Date().toLocaleDateString('en-CA');
+
+        if (token) {
+          console.log('[TASKS] Sending create_task to background worker...');
+          chrome.runtime.sendMessage({
+            action: 'create_task',
+            token,
+            payload: { text, dateString: todayStr }
+          }, (response) => {
+            if (chrome.runtime.lastError) {
+              console.error('[TASKS] create_task sendMessage error:', chrome.runtime.lastError.message);
+            } else {
+              console.log('[TASKS] create_task response:', response);
+            }
+            fetchTasks();
+          });
+        } else {
+          // Offline local fallback
+          console.log('[TASKS] Saving task locally (offline fallback)...');
+          const newTask = {
+            tempId: 'temp_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+            text,
+            completed: false,
+            dateString: todayStr
+          };
+          localTasks.push(newTask);
+          chrome.storage.local.set({ local_tasks: localTasks }, () => {
+            tasksData = localTasks;
+            renderTasks();
+          });
+        }
+      });
+    });
+  }
+
+  // Toggle Task Completed
+  function toggleTask(id, completed) {
+    console.log('[TASKS] Toggling task:', id, '| completed:', completed);
+    chrome.storage.local.get(['token', 'local_tasks'], (result) => {
+      const token = result.token;
+      let localTasks = result.local_tasks || [];
+
+      // Update in memory first
+      const taskObj = tasksData.find(t => (t._id === id || t.tempId === id));
+      if (taskObj) taskObj.completed = completed;
+      renderTasks();
+
+      if (token && !id.startsWith('temp_')) {
+        chrome.runtime.sendMessage({
+          action: 'update_task',
+          token,
+          taskId: id,
+          payload: { completed }
+        }, (response) => {
+          if (chrome.runtime.lastError) {
+            console.error('[TASKS] update_task sendMessage error:', chrome.runtime.lastError.message);
+          }
+          fetchTasks();
+        });
+      } else {
+        // Offline / Local
+        localTasks = localTasks.map(t => {
+          if (t._id === id || t.tempId === id) {
+            t.completed = completed;
+          }
+          return t;
+        });
+        chrome.storage.local.set({ local_tasks: localTasks }, () => {
+          fetchTasks();
+        });
+      }
+    });
+  }
+
+  // Delete Task
+  function deleteTask(id) {
+    console.log('[TASKS] Deleting task:', id);
+    chrome.storage.local.get(['token', 'local_tasks'], (result) => {
+      const token = result.token;
+      let localTasks = result.local_tasks || [];
+
+      // Remove from memory
+      tasksData = tasksData.filter(t => (t._id !== id && t.tempId !== id));
+      renderTasks();
+
+      if (token && !id.startsWith('temp_')) {
+        chrome.runtime.sendMessage({
+          action: 'delete_task',
+          token,
+          taskId: id
+        }, (response) => {
+          if (chrome.runtime.lastError) {
+            console.error('[TASKS] delete_task sendMessage error:', chrome.runtime.lastError.message);
+          }
+          fetchTasks();
+        });
+      } else {
+        // Offline / Local
+        localTasks = localTasks.filter(t => (t._id !== id && t.tempId !== id));
+        chrome.storage.local.set({ local_tasks: localTasks }, () => {
+          fetchTasks();
+        });
+      }
+    });
+  }
+
+  // Save edited task
+  function saveEdit(id, newText) {
+    if (!newText) return;
+    console.log('[TASKS] Saving edited task:', id, 'new text:', newText);
+    chrome.storage.local.get(['token', 'local_tasks'], (result) => {
+      const token = result.token;
+      let localTasks = result.local_tasks || [];
+
+      // Update in memory first
+      const taskObj = tasksData.find(t => (t._id === id || t.tempId === id));
+      if (taskObj) taskObj.text = newText;
+      renderTasks();
+
+      if (token && !id.startsWith('temp_')) {
+        chrome.runtime.sendMessage({
+          action: 'update_task',
+          token,
+          taskId: id,
+          payload: { text: newText }
+        }, (response) => {
+          if (chrome.runtime.lastError) {
+            console.error('[TASKS] update_task sendMessage error:', chrome.runtime.lastError.message);
+          }
+          fetchTasks();
+        });
+      } else {
+        // Offline / Local
+        localTasks = localTasks.map(t => {
+          if (t._id === id || t.tempId === id) {
+            t.text = newText;
+          }
+          return t;
+        });
+        chrome.storage.local.set({ local_tasks: localTasks }, () => {
+          fetchTasks();
+        });
+      }
+    });
+  }
+
+  function updatePopup() {
+    console.log('[POPUP] Running updatePopup refresh...');
+    fetchCloudStats();
+    fetchTasks();
+    checkForUpdates();
+  }
+
+  function checkForUpdates() {
+    const localVersion = chrome.runtime.getManifest().version;
+    console.log('[UPDATE] Checking for extension updates. Local Version:', localVersion);
+    chrome.runtime.sendMessage({ action: 'check_version' }, (response) => {
+      if (chrome.runtime.lastError) {
+        console.warn('[UPDATE] Version check failed or connection unreachable:', chrome.runtime.lastError.message);
+        return;
+      }
+      if (!response || !response.success) {
+        console.warn('[UPDATE] Version check returned unsuccessful state');
+        return;
+      }
+      const data = response.data;
+      if (data && data.latestVersion) {
+        console.log('[UPDATE] Latest Version available on server:', data.latestVersion);
+        if (data.latestVersion !== localVersion) {
+          const banner = document.getElementById('popup-update-banner');
+          const latestVerSpan = document.getElementById('popup-latest-ver');
+          const updateLink = document.getElementById('popup-update-link');
+          if (banner && latestVerSpan && updateLink) {
+            latestVerSpan.textContent = data.latestVersion;
+            updateLink.href = data.downloadUrl;
+            banner.classList.remove('hidden');
+          }
+        } else {
+          // Hide banner if local is up-to-date
+          const banner = document.getElementById('popup-update-banner');
+          if (banner) banner.classList.add('hidden');
+        }
+      }
+    });
+  }
+
   // Startup hooks
   updateAuthUI();
   fetchCloudStats();
+  fetchTasks();
+  checkForUpdates();
   setInterval(tick, 1000);
 });
